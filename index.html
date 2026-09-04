@@ -315,6 +315,7 @@
                 <h2 id="detailLineName">产线</h2>
                 <div class="detail-actions" id="detailActions" style="display:none;">
                     <button class="btn-action primary" id="btnAddStation">➕ 新增岗位</button>
+                    <button class="btn-action primary" id="btnAddDevice">➕ 新增设备</button>
                     <button class="btn-action" id="btnEditLineName">✏️ 修改产线名称</button>
                     <button class="btn-action" id="btnExportDetail">📥 导出备份</button>
                     <button class="btn-action" id="btnImportDetail">📤 导入备份</button>
@@ -329,6 +330,7 @@
     <div class="modal-overlay" id="adminModal"><div class="modal-card" style="max-width:480px;"><div class="modal-header"><h3 id="adminModalTitle">管理员登录</h3><button class="modal-close" onclick="closeModal('adminModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>邮箱</label><input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="username" onkeydown="if(event.key==='Enter')submitAuthForm()"></div><div class="form-group"><label>密码</label><input type="password" id="adminPasswordInput" placeholder="至少 6 位" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuthForm()"></div><p id="adminModalHint" style="font-size:0.8rem;color:var(--text-light);margin-top:4px;line-height:1.6;"></p><div id="adminModalError" style="display:none;margin-top:12px;padding:10px 14px;background:#fff5f5;border-radius:6px;font-size:0.9rem;color:var(--accent-red);line-height:1.5;"></div></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('adminModal')">取消</button><button class="btn-action" id="btnAuthSwitchMode">注册新账号</button><button class="btn-action primary" id="btnAuthSubmit">登录</button></div></div></div>
     <div class="modal-overlay" id="editPersonModal"><div class="modal-card"><div class="modal-header"><h3 id="editPersonModalTitle">编辑人员信息</h3><button class="modal-close" onclick="closeModal('editPersonModal')">✕</button></div><div class="modal-body" id="editPersonModalBody"></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('editPersonModal')">取消</button><button class="btn-action primary" id="btnSavePersonEdit">保存</button></div></div></div>
     <div class="modal-overlay" id="addStationModal"><div class="modal-card"><div class="modal-header"><h3>新增岗位</h3><button class="modal-close" onclick="closeModal('addStationModal')">✕</button></div><div class="modal-body" id="addStationModalBody"></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('addStationModal')">取消</button><button class="btn-action primary" id="btnSaveNewStation">添加</button></div></div></div>
+    <div class="modal-overlay" id="addDeviceModal"><div class="modal-card"><div class="modal-header"><h3>新增设备</h3><button class="modal-close" onclick="closeModal('addDeviceModal')">✕</button></div><div class="modal-body" id="addDeviceModalBody"></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('addDeviceModal')">取消</button><button class="btn-action primary" id="btnSaveNewDevice">添加</button></div></div></div>
     <div class="modal-overlay" id="editLineNameModal"><div class="modal-card" style="max-width:560px;"><div class="modal-header"><h3>修改产线名称</h3><button class="modal-close" onclick="closeModal('editLineNameModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>产线名称</label><input type="text" id="editLineNameInput" placeholder="请输入产线名称"></div></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('editLineNameModal')">取消</button><button class="btn-action primary" onclick="saveLineName()">保存</button></div></div></div>
     <div class="modal-overlay" id="editDeviceModal"><div class="modal-card" style="max-width:640px;"><div class="modal-header"><h3>编辑设备</h3><button class="modal-close" onclick="closeModal('editDeviceModal')">✕</button></div><div class="modal-body" id="editDeviceModalBody"></div><div class="modal-actions"><button class="btn-action danger" id="btnDeleteDevice">删除设备</button><button class="btn-action" onclick="closeModal('editDeviceModal')">取消</button><button class="btn-action primary" id="btnSaveDeviceEdit">保存</button></div></div></div>
     <div class="modal-overlay" id="historyModal"><div class="modal-card" style="max-width:880px;"><div class="modal-header"><h3>人员变更历史记录</h3><button class="modal-close" onclick="closeModal('historyModal')">✕</button></div><div class="modal-body"><div class="history-list" id="historyList"></div></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('historyModal')">关闭</button><button class="btn-action danger" onclick="clearHistory()">清空历史</button></div></div></div>
@@ -618,6 +620,23 @@
         }
 
         function saveData(data) {
+            // 落盘前先把「尚未点击『立即保存』」的位置改动并入数据。
+            // 否则像「编辑设备尺寸」「编辑人员」这类保存动作会读到旧坐标再整体写回，
+            // 把刚拖动的位置覆盖回原处。
+            if (data && data.productionLines && hasPendingPositionChanges) {
+                Object.keys(pendingPositions).forEach(function (key) {
+                    const p = pendingPositions[key];
+                    const line = data.productionLines.find(l => l.id === p.lineId);
+                    if (!line) return;
+                    let target = null;
+                    if (p.type === 'station') target = line.stations.find(s => s.id === p.id);
+                    else if (p.type === 'device') target = line.devices.find(d => d.id === p.id);
+                    if (target) { target.x = p.x; target.y = p.y; }
+                });
+                Object.keys(pendingPositions).forEach(function (k) { delete pendingPositions[k]; });
+                hasPendingPositionChanges = false;
+                updatePendingBadge();
+            }
             const res = safeStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             if (!res.ok) {
                 console.error('保存数据失败:', res.error);
@@ -1024,6 +1043,12 @@
                 const line = data.productionLines.find(l => l.id === currentLineId);
                 const device = line.devices.find(d => d.id === currentDeviceId);
                 if (!device) return;
+                // 清理该设备可能残留的未保存位置暂存，避免留下孤儿项
+                const pk = 'device:' + currentDeviceId;
+                if (pendingPositions[pk]) {
+                    delete pendingPositions[pk];
+                    if (Object.keys(pendingPositions).length === 0) { hasPendingPositionChanges = false; updatePendingBadge(); }
+                }
                 line.devices = line.devices.filter(d => d.id !== currentDeviceId);
                 saveData(data);
                 addHistory('删除设备', line.name, `删除设备 ${device.name}`, data);
@@ -1203,6 +1228,47 @@
             renderLayout(line);
             renderOverview();
             alert('岗位已添加');
+        }
+
+        // ==================== 新增设备 ====================
+        function openAddDevice() {
+            document.getElementById('addDeviceModalBody').innerHTML = `
+                <div class="form-group"><label>设备名称</label><input type="text" id="addDeviceName" placeholder="如：质检台 / 冲压机 / 传送带"></div>
+                <div class="form-group"><label>在布局中的X位置（0-90%）</label><input type="number" id="addDeviceX" value="30" min="2" max="88"></div>
+                <div class="form-group"><label>在布局中的Y位置（0-80%）</label><input type="number" id="addDeviceY" value="30" min="2" max="78"></div>
+                <div class="form-group"><label>宽度 (%)</label><input type="number" id="addDeviceW" value="14" min="2" max="90"></div>
+                <div class="form-group"><label>高度 (%)</label><input type="number" id="addDeviceH" value="14" min="2" max="90"></div>
+                <p style="font-size:0.75rem;color:var(--text-light);">提示：新增后可在管理员模式下拖动改变位置、双击修改名称和尺寸。</p>
+            `;
+            document.getElementById('btnSaveNewDevice').onclick = saveNewDevice;
+            openModal('addDeviceModal');
+        }
+
+        function saveNewDevice() {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            if (!line) return;
+            const name = document.getElementById('addDeviceName').value.trim();
+            const x = parseFloat(document.getElementById('addDeviceX').value) || 30;
+            const y = parseFloat(document.getElementById('addDeviceY').value) || 30;
+            const w = parseFloat(document.getElementById('addDeviceW').value) || 14;
+            const h = parseFloat(document.getElementById('addDeviceH').value) || 14;
+            if (!name) { alert('设备名称不能为空'); return; }
+            const deviceId = 'dv' + Date.now();
+            line.devices.push({
+                id: deviceId,
+                name: name,
+                x: Math.max(2, Math.min(88, x)),
+                y: Math.max(2, Math.min(78, y)),
+                w: Math.max(2, Math.min(90, w)),
+                h: Math.max(2, Math.min(90, h))
+            });
+            saveData(data);
+            addHistory('新增设备', line.name, `新增设备 ${name}`, data);
+            closeModal('addDeviceModal');
+            renderLayout(line);
+            renderOverview();
+            alert('设备已添加');
         }
 
         // ==================== 修改产线名称 ====================
@@ -1643,6 +1709,7 @@
         document.getElementById('btnImportDetail').addEventListener('click', importBackup);
         document.getElementById('importFileInput').addEventListener('change', handleImportFile);
         document.getElementById('btnAddStation').addEventListener('click', openAddStation);
+        document.getElementById('btnAddDevice').addEventListener('click', openAddDevice);
         document.getElementById('btnEditLineName').addEventListener('click', () => { if (currentLineId) openEditLineName(currentLineId); });
 
         function showStorageNotice() {
