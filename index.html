@@ -114,6 +114,7 @@
         .line-stats { display: flex; gap: 14px; font-size: 0.85rem; color: var(--text-mid); }
         .line-stats span { background: var(--bg-light); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
         .new-badge-count { background: var(--accent-red) !important; color: #fff !important; font-weight: 600; animation: badgePulse 1.5s ease-in-out infinite; }
+        .key-badge-count { background: #f5a623 !important; color: #fff !important; font-weight: 600; }
         @keyframes badgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.5); } 50% { box-shadow: 0 0 0 6px rgba(231,76,60,0); } }
         .line-arrow { font-size: 1.5rem; color: var(--text-light); transition: transform 0.3s; }
         .line-card:hover .line-arrow { transform: translateX(6px); color: var(--primary-blue); }
@@ -143,6 +144,13 @@
         .station-marker:hover .station-icon { background: linear-gradient(135deg, #d0e4f8, #a8cde8); border-color: var(--primary-light); box-shadow: 0 6px 20px rgba(45,109,168,0.35); }
         .station-marker.highlighted .station-icon { animation: highlightPulse 1s ease-in-out infinite; border-color: var(--accent-orange); box-shadow: 0 0 20px rgba(230,126,34,0.6); }
         @keyframes highlightPulse { 0%, 100% { box-shadow: 0 0 15px rgba(230,126,34,0.4); } 50% { box-shadow: 0 0 30px rgba(230,126,34,0.7); } }
+        /* 重点岗位 ★ 标识 */
+        .station-marker.is-key .station-icon { border-color: #f5a623; box-shadow: 0 0 0 2px rgba(245,166,35,0.4), 0 4px 12px rgba(0,0,0,0.12); }
+        .station-marker.is-key .station-icon::after { content: '★'; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, #ffd76e, #f5a623); color: #7a4b00; font-size: 0.68rem; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(245,166,35,0.55); border: 1.5px solid #fff; line-height: 1; }
+        .station-marker.is-key .station-label { background: #fff6e0; color: #8a5a00; border: 1px solid #f5c95e; font-weight: 700; }
+        .station-marker.is-key .station-hover-tip { background: #8a5a00; }
+        .station-marker.is-key .station-hover-tip::after { border-top-color: #8a5a00; }
+        .station-marker.is-key .new-indicator { top: 8px; right: -8px; }
         .new-indicator { position: absolute; top: -4px; right: -4px; background: var(--accent-red); color: #fff; font-size: 0.6rem; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(231,76,60,0.5); animation: badgePulse 1.5s ease-in-out infinite; letter-spacing: 0; }
         .station-label { font-size: 0.7rem; color: var(--text-mid); font-weight: 600; background: rgba(255,255,255,0.85); padding: 2px 8px; border-radius: 10px; white-space: nowrap; letter-spacing: 0.03em; box-shadow: 0 1px 4px rgba(0,0,0,0.08); pointer-events: none; }
         .station-hover-tip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--primary-dark); color: #fff; padding: 6px 12px; border-radius: var(--radius-sm); font-size: 0.75rem; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.25s; z-index: 20; box-shadow: var(--shadow-md); letter-spacing: 0.04em; }
@@ -207,6 +215,8 @@
             .station-hover-tip { font-size: 0.65rem; padding: 4px 8px; white-space: normal; max-width: 140px; }
             .station-label { font-size: 0.6rem; padding: 1px 5px; }
             .new-indicator { width: 15px; height: 15px; font-size: 0.5rem; top: -3px; right: -3px; }
+            .station-marker.is-key .station-icon::after { width: 16px; height: 16px; font-size: 0.6rem; top: -6px; right: -6px; }
+            .station-marker.is-key .new-indicator { top: 6px; right: -6px; }
             .detail-header { flex-direction: column; align-items: flex-start; }
             .btn-action { padding: 6px 12px; font-size: 0.75rem; }
         }
@@ -693,6 +703,7 @@
             grid.innerHTML = '';
             data.productionLines.forEach(line => {
                 const newCount = line.stations.filter(s => s.employee && s.employee.isNew).length;
+                const keyCount = line.stations.filter(s => s.employee && s.employee.isKey).length;
                 const card = document.createElement('div');
                 card.className = 'line-card' + (isAdminMode ? ' admin-mode' : '');
                 card.innerHTML = `
@@ -704,6 +715,7 @@
                         <div class="line-stats">
                             <span>岗位 ${line.stations.length} 个</span>
                             <span>设备 ${line.devices.length} 台</span>
+                            ${keyCount > 0 ? `<span class="key-badge-count">★ ${keyCount}个重点</span>` : ''}
                             ${newCount > 0 ? `<span class="new-badge-count">🔔 ${newCount}人换新</span>` : ''}
                         </div>
                         <span class="line-arrow">→</span>
@@ -771,10 +783,12 @@
                 marker.style.top = station.y + '%';
                 const emp = station.employee || { name: '未分配', position: '待定', isNew: false };
                 const showNew = emp.isNew;
+                const isKey = !!emp.isKey;
+                if (isKey) marker.classList.add('is-key');
                 marker.innerHTML = `
-                    <div class="station-hover-tip">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}（双击查看详情）</div>
+                    <div class="station-hover-tip">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}${isKey ? ' · ★重点岗位' : ''}（双击查看详情）</div>
                     <div class="station-icon">👤${showNew ? '<span class="new-indicator">新</span>' : ''}</div>
-                    <span class="station-label">${escapeHtml(station.name)}</span>
+                    <span class="station-label">${isKey ? '★ ' : ''}${escapeHtml(station.name)}</span>
                     ${isAdminMode ? `<button class="btn-delete-station" title="删除岗位" onclick="event.stopPropagation();deleteStation('${station.id}')">×</button>` : ''}
                 `;
                 marker.addEventListener('dblclick', (e) => {
@@ -1072,6 +1086,7 @@
             document.getElementById('personModalTitle').textContent = `${emp.name} - ${emp.position}`;
             const body = document.getElementById('personModalBody');
             body.innerHTML = `
+                ${emp.isKey ? `<div style="margin-bottom:14px;padding:10px 14px;background:#fff6e0;border:1px solid #f5c95e;border-radius:8px;font-size:0.95rem;color:#8a5a00;font-weight:700;">★ 该岗位为<b>重点岗位</b></div>` : ''}
                 <div class="info-field"><span class="field-label">员工姓名</span><span class="field-value">${escapeHtml(emp.name)}</span></div>
                 <div class="info-field"><span class="field-label">岗位名称</span><span class="field-value">${escapeHtml(station.name)}（${escapeHtml(emp.position)}）</span></div>
                 <div class="info-field"><span class="field-label">岗位职责</span><span class="field-value">${escapeHtml(emp.responsibilities || '未填写')}</span></div>
@@ -1084,6 +1099,9 @@
             if (isAdminMode) {
                 actions.innerHTML = `
                     <button class="btn-action" onclick="closeModal('personModal')">关闭</button>
+                    ${emp.isKey
+                        ? `<button class="btn-action" style="border-color:#f5a623;color:#8a5a00;" onclick="toggleStationKey('${stationId}')">★ 已标记重点岗位（点击取消）</button>`
+                        : `<button class="btn-action primary" onclick="toggleStationKey('${stationId}')">☆ 标为重点岗位</button>`}
                     <button class="btn-action primary" onclick="openEditPerson('${stationId}')">✏️ 编辑</button>
                     ${emp.isNew ? `<button class="btn-action" onclick="confirmNewIndicator('${stationId}')">✅ 确认已查看</button>` : ''}
                 `;
@@ -1091,6 +1109,31 @@
                 actions.innerHTML = `<button class="btn-action" onclick="closeModal('personModal')">关闭</button>`;
             }
             openModal('personModal');
+        }
+
+        function toggleStationKey(stationId) {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const station = line && line.stations.find(s => s.id === stationId);
+            if (!station || !station.employee) return;
+            const emp = station.employee;
+            const newVal = !emp.isKey;
+            const actText = newVal ? '标为重点岗位' : '取消重点岗位标记';
+            showConfirm(`确定将「${station.name}（${emp.name}）」${newVal ? '标为' : '取消'}重点岗位吗？`, () => {
+                const d2 = loadData();
+                const l2 = d2.productionLines.find(l => l.id === currentLineId);
+                const st2 = l2 && l2.stations.find(s => s.id === stationId);
+                if (st2 && st2.employee) {
+                    st2.employee.isKey = newVal;
+                    saveData(d2);
+                    addHistory(actText, l2.name, `${st2.name}（${st2.employee.name}）${newVal ? '已标记为' : '已取消'}重点岗位`, d2);
+                }
+                closeModal('confirmModal');
+                closeModal('personModal');
+                renderLayout(l2);
+                renderOverview();
+                showToast(newVal ? '已标记为重点岗位' : '已取消重点岗位标记');
+            });
         }
 
         function confirmNewIndicator(stationId) {
@@ -1123,6 +1166,7 @@
                 <div class="form-group"><label>岗位名称（职务）</label><input type="text" id="editEmpPosition" value="${escapeHtml(emp.position)}"></div>
                 <div class="form-group"><label>岗位职责</label><textarea id="editEmpResponsibilities">${escapeHtml(emp.responsibilities || '')}</textarea></div>
                 <div class="form-group"><label>安全/操作注意事项</label><textarea id="editEmpNotes">${escapeHtml(emp.notes || '')}</textarea></div>
+                <div class="form-group"><label style="display:inline-flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;margin-bottom:0;"><input type="checkbox" id="editEmpIsKey" style="width:auto;height:auto;" ${emp.isKey ? 'checked' : ''}> ★ 标记为重点岗位（布局中显示金黄色 ★ 角标）</label></div>
             `;
             document.getElementById('btnSavePersonEdit').onclick = () => savePersonEdit(stationId, emp.name);
             closeModal('personModal');
@@ -1138,9 +1182,12 @@
             const newPosition = document.getElementById('editEmpPosition').value.trim();
             const newResp = document.getElementById('editEmpResponsibilities').value.trim();
             const newNotes = document.getElementById('editEmpNotes').value.trim();
+            const keyCb = document.getElementById('editEmpIsKey');
+            const newIsKey = !!keyCb && keyCb.checked;
             if (!newName) { alert('员工姓名不能为空'); return; }
             const nameChanged = (newName !== oldName);
-            const confirmText = `确定保存对 ${oldName} 的信息更改吗？` + (nameChanged ? `（姓名由 ${oldName} 变更为 ${newName}）` : '');
+            const keyChanged = newIsKey !== !!loadData().productionLines.find(l => l.id === currentLineId).stations.find(s => s.id === stationId).employee.isKey;
+            const confirmText = `确定保存对 ${oldName} 的信息更改吗？` + (nameChanged ? `（姓名由 ${oldName} 变更为 ${newName}）` : '') + (keyChanged ? `（${newIsKey ? '标记为' : '取消'}重点岗位）` : '');
             const doSave = () => {
                 const currentData = loadData();
                 const currentLine = currentData.productionLines.find(l => l.id === currentLineId);
@@ -1150,6 +1197,7 @@
                     st.employee.position = newPosition || '未指定';
                     st.employee.responsibilities = newResp;
                     st.employee.notes = newNotes;
+                    st.employee.isKey = newIsKey;
                     st.employee.lastUpdated = new Date().toISOString().split('T')[0];
                     if (nameChanged) {
                         st.employee.isNew = true;
@@ -1203,6 +1251,7 @@
                 <div class="form-group"><label>岗位职务</label><input type="text" id="addEmpPosition" placeholder="如：操作工"></div>
                 <div class="form-group"><label>岗位职责</label><textarea id="addEmpResp" placeholder="岗位职责描述"></textarea></div>
                 <div class="form-group"><label>注意事项</label><textarea id="addEmpNotes" placeholder="安全/操作注意事项"></textarea></div>
+                <div class="form-group"><label style="display:inline-flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;margin-bottom:0;"><input type="checkbox" id="addEmpIsKey" style="width:auto;height:auto;"> ★ 标记为重点岗位（布局中显示金黄色 ★ 角标）</label></div>
             `;
             document.getElementById('btnSaveNewStation').onclick = saveNewStation;
             openModal('addStationModal');
@@ -1221,6 +1270,8 @@
             if (!name) { alert('岗位名称不能为空'); return; }
             const stationId = 'st' + Date.now();
             const emp = makeEmployee(empName, empPos, empResp, empNotes, new Date().toISOString().split('T')[0], false, null, null);
+            const keyCb = document.getElementById('addEmpIsKey');
+            if (keyCb && keyCb.checked) emp.isKey = true;
             line.stations.push({ id: stationId, name, x: Math.max(2, Math.min(88, x)), y: Math.max(2, Math.min(78, y)), employee: emp });
             saveData(data);
             addHistory('新增岗位', line.name, `新增岗位 ${name}（${empName}）`, data);
