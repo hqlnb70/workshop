@@ -596,6 +596,34 @@
                             { id: 'st4-3', name: '码垛岗', x: 68, y: 34, employee: makeEmployee('马超', '码垛操作工', '负责成品码垛与入库登记', '使用叉车时注意周围人员安全', '2026-09-02', true, '2026-09-02', null) },
                         ]
                     },
+                    {
+                        id: 'line5', name: '产线5 · 喷涂线',
+                        devices: [
+                            { id: 'dev5-1', name: '喷涂机器人A', x: 8, y: 12, w: 16, h: 14 },
+                            { id: 'dev5-2', name: '喷涂机器人B', x: 36, y: 10, w: 15, h: 16 },
+                            { id: 'dev5-3', name: '烘干炉', x: 62, y: 12, w: 18, h: 14 },
+                            { id: 'dev5-4', name: '传送带', x: 20, y: 36, w: 46, h: 8 },
+                        ],
+                        stations: [
+                            { id: 'st5-1', name: '上件岗', x: 12, y: 33, employee: makeEmployee('顾宁', '上件操作工', '负责工件挂装与喷涂前清洁', '戴防尘口罩，工件务必悬挂牢固', '2026-08-27', false, null, null) },
+                            { id: 'st5-2', name: '喷涂岗', x: 42, y: 32, employee: makeEmployee('潘婷', '喷涂操作工', '负责喷涂机器人参数监控与手工补喷', '喷涂区严禁明火，穿戴全套防护服', '2026-09-01', true, '2026-09-01', null) },
+                            { id: 'st5-3', name: '烘干监控岗', x: 70, y: 34, employee: makeEmployee('段誉', '烘干监控员', '负责烘干炉温度监控与运行记录', '注意炉温波动，防止工件过烧', '2026-08-24', false, null, null) },
+                        ]
+                    },
+                    {
+                        id: 'line6', name: '产线6 · 总装线',
+                        devices: [
+                            { id: 'dev6-1', name: '总装台A', x: 8, y: 12, w: 15, h: 13 },
+                            { id: 'dev6-2', name: '总装台B', x: 32, y: 10, w: 15, h: 15 },
+                            { id: 'dev6-3', name: '拧紧机', x: 58, y: 14, w: 14, h: 12 },
+                            { id: 'dev6-4', name: '传送带', x: 18, y: 38, w: 54, h: 8 },
+                        ],
+                        stations: [
+                            { id: 'st6-1', name: '预装岗', x: 12, y: 34, employee: makeEmployee('何芳', '预装操作工', '负责部件预装与紧固件准备', '佩戴护目镜，电动工具定期校准', '2026-08-25', false, null, null) },
+                            { id: 'st6-2', name: '总装岗', x: 40, y: 33, employee: makeEmployee('邵东', '总装操作工', '负责整机装配与联调', '重件搬运注意安全，两人协作', '2026-08-29', false, null, null) },
+                            { id: 'st6-3', name: '终检岗', x: 68, y: 36, employee: makeEmployee('姜莉', '终检员', '负责成品终检与出厂记录', '检测仪器使用前校准，如实记录', '2026-08-20', false, null, null) },
+                        ]
+                    },
                 ],
                 history: [
                     { id: 1, type: '系统初始化', lineName: '全部产线', details: '初始化车间数据', timestamp: '2026-08-15T09:00:00' },
