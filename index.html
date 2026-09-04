@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蓝图复鼎车间 - 产线可视化展示</title>
+    <style>
+        :root {
+            --primary-dark: #0d1b2a;
+            --primary-mid: #1b3a5c;
+            --primary-blue: #2d6da8;
+            --primary-light: #4a90c4;
+            --accent-blue: #5ba3d9;
+            --accent-orange: #e67e22;
+            --accent-red: #e74c3c;
+            --accent-green: #27ae60;
+            --bg-light: #f0f4f8;
+            --bg-card: #ffffff;
+            --text-dark: #1a1a2e;
+            --text-mid: #3d4f60;
+            --text-light: #6b7f8f;
+            --border-color: #c5d5e5;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.12);
+            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.2);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { display: none; min-height: 100vh; animation: fadeInPage 0.45s ease; }
+        .page.active { display: flex; flex-direction: column; }
+        @keyframes fadeInPage { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 欢迎页 */
+        #welcomePage {
+            justify-content: center; align-items: center;
+            background: linear-gradient(145deg, #0a1628 0%, #0d1b2a 30%, #12263f 60%, #0d1b2a 100%);
+            position: relative; overflow: hidden; text-align: center;
+        }
+        #welcomePage::before {
+            content: ''; position: absolute; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.02) 40px, rgba(255,255,255,0.02) 41px),
+                        repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(255,255,255,0.02) 60px, rgba(255,255,255,0.02) 61px);
+            pointer-events: none;
+        }
+        .welcome-content { position: relative; z-index: 2; animation: fadeInUp 1.2s ease forwards; padding: 20px; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        .welcome-gear { font-size: 80px; display: block; margin-bottom: 20px; animation: spinGear 12s linear infinite; color: var(--accent-blue); opacity: 0.7; user-select: none; }
+        @keyframes spinGear { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .welcome-title {
+            font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; color: #e8f0fe;
+            letter-spacing: 0.08em; text-shadow: 0 0 40px rgba(75,144,204,0.5), 0 4px 20px rgba(0,0,0,0.5);
+            margin-bottom: 16px; line-height: 1.3;
+        }
+        .welcome-subtitle { font-size: clamp(0.9rem, 2vw, 1.2rem); color: var(--accent-blue); letter-spacing: 0.2em; margin-bottom: 40px; font-weight: 300; text-transform: uppercase; }
+        .btn-enter {
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-blue)); color: #fff;
+            border: 2px solid rgba(255,255,255,0.25); padding: 16px 48px; font-size: 1.15rem; font-weight: 600;
+            border-radius: 50px; cursor: pointer; letter-spacing: 0.1em; transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            position: relative; overflow: hidden; box-shadow: 0 8px 30px rgba(45,109,168,0.4); user-select: none;
+        }
+        .btn-enter:hover { background: linear-gradient(135deg, var(--primary-light), var(--accent-blue)); box-shadow: 0 12px 40px rgba(75,144,204,0.6); transform: translateY(-3px); border-color: rgba(255,255,255,0.5); letter-spacing: 0.15em; }
+        .btn-enter:active { transform: translateY(0); box-shadow: 0 4px 15px rgba(45,109,168,0.4); }
+        .welcome-lines { position: absolute; bottom: 0; left: 0; right: 0; height: 120px; background: repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(75,144,204,0.08) 80px, rgba(75,144,204,0.08) 82px); pointer-events: none; z-index: 1; }
+
+        /* 顶部导航 */
+        .top-bar {
+            display: flex; align-items: center; justify-content: space-between; padding: 12px 24px;
+            background: var(--primary-dark); color: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 10px;
+        }
+        .top-bar-left { display: flex; align-items: center; gap: 12px; }
+        .top-bar-title { font-size: 1.2rem; font-weight: 600; letter-spacing: 0.05em; color: #e8f0fe; white-space: nowrap; }
+        .btn-back { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 8px 16px; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.9rem; transition: all var(--transition); white-space: nowrap; }
+        .btn-back:hover { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.4); }
+        .top-bar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .btn-admin { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3); color: #ddd; padding: 8px 16px; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.85rem; transition: all var(--transition); white-space: nowrap; }
+        .btn-admin:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.5); }
+        .admin-badge { background: var(--accent-orange); color: #fff; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; }
+        .search-box { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.1); border-radius: 30px; padding: 6px 14px; border: 1px solid rgba(255,255,255,0.2); transition: all var(--transition); position: relative; }
+        .search-box:focus-within { background: rgba(255,255,255,0.18); border-color: var(--accent-blue); box-shadow: 0 0 20px rgba(75,144,204,0.3); }
+        .search-box input { background: transparent; border: none; outline: none; color: #fff; font-size: 0.9rem; width: 160px; letter-spacing: 0.03em; }
+        .search-box input::placeholder { color: rgba(255,255,255,0.5); }
+        .search-box .search-icon { color: rgba(255,255,255,0.6); font-size: 1rem; user-select: none; }
+        .search-results-dropdown { position: absolute; top: 100%; right: 0; background: #fff; border-radius: var(--radius-sm); box-shadow: var(--shadow-md); min-width: 240px; max-height: 300px; overflow-y: auto; z-index: 200; display: none; margin-top: 6px; }
+        .search-results-dropdown.show { display: block; animation: fadeInPage 0.25s ease; }
+        .search-result-item { padding: 10px 16px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #eee; font-size: 0.9rem; color: var(--text-dark); }
+        .search-result-item:hover { background: var(--bg-light); }
+        .search-result-item .result-line { color: var(--text-mid); font-size: 0.8rem; }
+
+        /* 总览页 */
+        .overview-container { flex: 1; padding: 30px 20px; max-width: 1400px; margin: 0 auto; width: 100%; }
+        .overview-header { text-align: center; margin-bottom: 32px; }
+        .overview-header h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); color: var(--primary-dark); letter-spacing: 0.05em; font-weight: 700; }
+        .overview-header p { color: var(--text-light); font-size: 0.95rem; margin-top: 6px; }
+        .lines-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+        .line-card { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; cursor: pointer; transition: all 0.35s cubic-bezier(0.4,0,0.2,1); border: 2px solid transparent; position: relative; user-select: none; }
+        .line-card:hover { box-shadow: var(--shadow-md); transform: translateY(-6px); border-color: var(--primary-light); }
+        .line-card-header { background: linear-gradient(135deg, var(--primary-mid), var(--primary-blue)); padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; color: #fff; }
+        .line-card-header .line-name { font-size: 1.2rem; font-weight: 600; letter-spacing: 0.04em; }
+        .line-card-header .edit-icon { opacity: 0; transition: opacity 0.3s; cursor: pointer; font-size: 1.1rem; background: rgba(255,255,255,0.2); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .line-card:hover .edit-icon, .line-card.admin-mode .edit-icon { opacity: 1; }
+        .line-card-body { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .line-stats { display: flex; gap: 14px; font-size: 0.85rem; color: var(--text-mid); }
+        .line-stats span { background: var(--bg-light); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
+        .new-badge-count { background: var(--accent-red) !important; color: #fff !important; font-weight: 600; animation: badgePulse 1.5s ease-in-out infinite; }
+        @keyframes badgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.5); } 50% { box-shadow: 0 0 0 6px rgba(231,76,60,0); } }
+        .line-arrow { font-size: 1.5rem; color: var(--text-light); transition: transform 0.3s; }
+        .line-card:hover .line-arrow { transform: translateX(6px); color: var(--primary-blue); }
+        .line-card-preview { padding: 0 20px 16px; font-size: 0.8rem; color: var(--text-light); letter-spacing: 0.03em; }
+
+        /* 详情页 */
+        .detail-container { flex: 1; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+        .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        .detail-header h2 { font-size: clamp(1.3rem, 2.5vw, 1.8rem); color: var(--primary-dark); letter-spacing: 0.04em; }
+        .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-action { padding: 10px 20px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: #fff; cursor: pointer; font-size: 0.92rem; transition: all var(--transition); color: var(--text-mid); font-weight: 500; }
+        .btn-action:hover { border-color: var(--primary-blue); color: var(--primary-blue); background: #f8fbff; }
+        .btn-action.danger { color: var(--accent-red); border-color: #f5c6cb; }
+        .btn-action.danger:hover { background: #fff5f5; border-color: var(--accent-red); }
+        .btn-action.primary { background: var(--primary-blue); color: #fff; border-color: var(--primary-blue); }
+        .btn-action.primary:hover { background: var(--primary-light); border-color: var(--primary-light); }
+        .layout-canvas { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 20px; position: relative; min-height: 420px; border: 2px solid var(--border-color); overflow: hidden; touch-action: none; }
+        .layout-canvas::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 30px, rgba(0,0,0,0.03) 30px, rgba(0,0,0,0.03) 31px), repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(0,0,0,0.03) 30px, rgba(0,0,0,0.03) 31px); pointer-events: none; border-radius: var(--radius-lg); z-index: 0; }
+        .layout-device { position: absolute; background: linear-gradient(135deg, #d5dde5, #b8c4d0); border: 2px solid #8fa8bc; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; color: #4a5f70; letter-spacing: 0.05em; text-transform: uppercase; user-select: none; box-shadow: 0 2px 6px rgba(0,0,0,0.1); z-index: 2; transition: all 0.3s; pointer-events: none; }
+        body.admin-mode .layout-device { pointer-events: auto; cursor: move; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        body.admin-mode .layout-device:hover { cursor: grab; border-color: var(--primary-blue); box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+        body.admin-mode .layout-device.dragging { cursor: grabbing; z-index: 25; box-shadow: 0 8px 25px rgba(0,0,0,0.3); transition: none; }
+        .station-marker { position: absolute; z-index: 5; cursor: pointer; user-select: none; transition: all 0.3s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .station-marker:hover { transform: scale(1.12); z-index: 10; }
+        .station-marker.dragging { transition: none; z-index: 20; cursor: grabbing; transform: scale(1.1); box-shadow: 0 8px 25px rgba(0,0,0,0.2); border-radius: 50%; }
+        .station-icon { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #e8f0fe, #c8ddf0); border: 2.5px solid var(--primary-blue); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s; position: relative; pointer-events: none; }
+        .station-marker:hover .station-icon { background: linear-gradient(135deg, #d0e4f8, #a8cde8); border-color: var(--primary-light); box-shadow: 0 6px 20px rgba(45,109,168,0.35); }
+        .station-marker.highlighted .station-icon { animation: highlightPulse 1s ease-in-out infinite; border-color: var(--accent-orange); box-shadow: 0 0 20px rgba(230,126,34,0.6); }
+        @keyframes highlightPulse { 0%, 100% { box-shadow: 0 0 15px rgba(230,126,34,0.4); } 50% { box-shadow: 0 0 30px rgba(230,126,34,0.7); } }
+        .new-indicator { position: absolute; top: -4px; right: -4px; background: var(--accent-red); color: #fff; font-size: 0.6rem; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(231,76,60,0.5); animation: badgePulse 1.5s ease-in-out infinite; letter-spacing: 0; }
+        .station-label { font-size: 0.7rem; color: var(--text-mid); font-weight: 600; background: rgba(255,255,255,0.85); padding: 2px 8px; border-radius: 10px; white-space: nowrap; letter-spacing: 0.03em; box-shadow: 0 1px 4px rgba(0,0,0,0.08); pointer-events: none; }
+        .station-hover-tip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--primary-dark); color: #fff; padding: 6px 12px; border-radius: var(--radius-sm); font-size: 0.75rem; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.25s; z-index: 20; box-shadow: var(--shadow-md); letter-spacing: 0.04em; }
+        .station-hover-tip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--primary-dark); }
+        .station-marker:hover .station-hover-tip { opacity: 1; }
+        .btn-delete-station, .btn-delete-device { display: none; position: absolute; top: -8px; left: -8px; background: var(--accent-red); color: #fff; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 0.7rem; z-index: 15; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: all 0.2s; pointer-events: auto; }
+        .btn-delete-station:hover, .btn-delete-device:hover { background: #c0392b; transform: scale(1.2); }
+        body.admin-mode .btn-delete-station, body.admin-mode .btn-delete-device { display: flex; }
+        body.admin-mode .station-marker { cursor: move; }
+        body.admin-mode .station-marker:hover { cursor: grab; }
+        body.admin-mode .station-marker.dragging { cursor: grabbing; }
+
+        /* 模态框 */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 500; display: none; align-items: center; justify-content: center; padding: 20px; animation: fadeInOverlay 0.3s ease; }
+        .modal-overlay.show { display: flex; }
+        @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+        .modal-card { background: #fff; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); max-width: 760px; width: 100%; max-height: 88vh; overflow-y: auto; animation: slideUpModal 0.35s cubic-bezier(0.4,0,0.2,1); padding: 0; }
+        @keyframes slideUpModal { from { opacity: 0; transform: translateY(30px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .modal-header { background: linear-gradient(135deg, var(--primary-mid), var(--primary-blue)); color: #fff; padding: 22px 32px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; display: flex; align-items: center; justify-content: space-between; }
+        .modal-header h3 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.04em; }
+        .modal-close { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 1.35rem; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .modal-close:hover { background: rgba(255,255,255,0.35); }
+        .modal-body { padding: 32px; }
+        .info-field { display: flex; padding: 14px 0; border-bottom: 1px solid #eef2f6; font-size: 1.02rem; }
+        .info-field:last-child { border-bottom: none; }
+        .info-field .field-label { min-width: 150px; font-weight: 600; color: var(--text-mid); letter-spacing: 0.04em; }
+        .info-field .field-value { flex: 1; color: var(--text-dark); line-height: 1.5; }
+        .modal-actions { padding: 20px 32px; display: flex; gap: 12px; justify-content: flex-end; border-top: 1px solid #eef2f6; flex-wrap: wrap; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 0.95rem; font-weight: 600; color: var(--text-mid); margin-bottom: 5px; letter-spacing: 0.03em; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 13px 16px; border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); font-size: 1rem; transition: border-color 0.2s; font-family: inherit; background: #fafbfc; outline: none; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--primary-blue); background: #fff; box-shadow: 0 0 0 3px rgba(45,109,168,0.1); }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .history-list { max-height: 480px; overflow-y: auto; border: 1px solid #eef2f6; border-radius: var(--radius-sm); }
+        .history-item { padding: 13px 16px; border-bottom: 1px solid #eef2f6; font-size: 0.92rem; display: flex; gap: 10px; align-items: flex-start; color: var(--text-mid); }
+        .history-item:last-child { border-bottom: none; }
+        .history-item .history-time { white-space: nowrap; color: var(--text-light); font-size: 0.75rem; min-width: 100px; }
+        .history-item .history-desc { flex: 1; }
+        .history-item .history-type { font-weight: 600; color: var(--primary-blue); white-space: nowrap; }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .top-bar { padding: 8px 12px; gap: 8px; }
+            .top-bar-title { font-size: 0.95rem; }
+            .search-box input { width: 100px; font-size: 0.8rem; }
+            .lines-grid { grid-template-columns: 1fr; gap: 14px; }
+            .overview-container { padding: 16px 12px; }
+            .detail-container { padding: 12px 8px; }
+            .layout-canvas { min-height: 300px; padding: 10px; }
+            .station-icon { width: 34px; height: 34px; font-size: 1.1rem; border-width: 2px; }
+            .layout-device { font-size: 0.55rem; padding: 2px 4px; }
+            .welcome-title { font-size: 1.8rem; }
+            .btn-enter { padding: 13px 32px; font-size: 1rem; }
+            .welcome-gear { font-size: 55px; }
+            .modal-card { margin: 10px; max-height: 80vh; }
+            .modal-header { padding: 16px 18px; }
+            .modal-header h3 { font-size: 1.15rem; }
+            .modal-body { padding: 18px; }
+            .modal-actions { padding: 14px 18px; }
+            .info-field { flex-direction: column; gap: 3px; }
+            .info-field .field-label { min-width: auto; }
+            .station-hover-tip { font-size: 0.65rem; padding: 4px 8px; white-space: normal; max-width: 140px; }
+            .station-label { font-size: 0.6rem; padding: 1px 5px; }
+            .new-indicator { width: 15px; height: 15px; font-size: 0.5rem; top: -3px; right: -3px; }
+            .detail-header { flex-direction: column; align-items: flex-start; }
+            .btn-action { padding: 6px 12px; font-size: 0.75rem; }
+        }
+        @media (max-width: 420px) {
+            .search-box input { width: 70px; }
+            .top-bar-right { gap: 5px; }
+            .btn-admin { padding: 5px 10px; font-size: 0.7rem; }
+            .station-icon { width: 28px; height: 28px; font-size: 0.9rem; }
+            .layout-canvas { min-height: 240px; }
+            .btn-enter { padding: 12px 24px; font-size: 0.9rem; }
+            .welcome-title { font-size: 1.4rem; }
+        }
+            #storageNotice { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9998; background: #fff4e5; color: #8a5300; border-top: 1px solid #f0c36d; padding: 10px 44px 10px 16px; font-size: 0.85rem; line-height: 1.5; box-shadow: 0 -2px 8px rgba(0,0,0,.06); }
+        #storageNotice button { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #8a5300; font-size: 1rem; cursor: pointer; padding: 4px 8px; line-height: 1; }
+        #pendingBadge { position: fixed; right: 16px; bottom: 16px; z-index: 9997; display: flex; align-items: center; gap: 10px; background: #1f2937; color: #fff; padding: 10px 12px 10px 14px; border-radius: 8px; font-size: 0.85rem; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+        #pendingBadge button { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 0.8rem; cursor: pointer; }
+        #pendingBadge button:hover { filter: brightness(1.15); }
+        #toastMsg { position: fixed; left: 50%; top: 24px; transform: translate(-50%, -16px); z-index: 10000; background: rgba(17,24,39,.92); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 0.88rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+        #toastMsg.show { opacity: 1; transform: translate(-50%, 0); }
+        .sync-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
+        .sync-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+        .sync-badge.s-ok { background: #e8f6ed; color: #1a7f43; }
+        .sync-badge.s-syncing { background: #eef4fb; color: #2d6da8; }
+        .sync-badge.s-syncing .dot { animation: syncPulse 1s ease-in-out infinite; }
+        .sync-badge.s-error { background: #fff5f5; color: var(--accent-red); }
+        .sync-badge.s-offline { background: #f4f5f7; color: var(--text-light); }
+        @keyframes syncPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+        .user-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #eef4fb; color: var(--primary-blue); font-size: 0.78rem; font-weight: 600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .user-chip .role-tag { background: var(--primary-blue); color: #fff; padding: 1px 7px; border-radius: 999px; font-size: 0.68rem; }
+        .member-row { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid #eef2f6; }
+        .member-row:last-of-type { border-bottom: none; }
+        .member-main { flex: 1; min-width: 0; }
+        .member-email { font-size: 0.98rem; font-weight: 600; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .member-meta { font-size: 0.78rem; color: var(--text-light); margin-top: 3px; }
+        .member-me { background: #eef4fb; color: var(--primary-blue); font-size: 0.68rem; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+        .member-role { font-size: 0.85rem; font-weight: 600; padding: 5px 12px; border-radius: 999px; white-space: nowrap; }
+        .role-super_admin { background: #fff1e6; color: #b35c00; }
+        .role-admin { background: #e8f6ed; color: #1a7f43; }
+        .role-viewer { background: #f4f5f7; color: var(--text-light); }
+        .member-actions { flex: none; }
+</style>
+</head>
+<body>
+    <!-- 欢迎页 -->
+    <div class="page active" id="welcomePage">
+        <div class="welcome-content">
+            <span class="welcome-gear">⚙</span>
+            <h1 class="welcome-title">欢迎参观蓝图复鼎车间</h1>
+            <p class="welcome-subtitle">Blueprint Fuding Workshop</p>
+            <button class="btn-enter" id="btnEnterWorkshop">进入车间</button>
+        </div>
+        <div class="welcome-lines"></div>
+    </div>
+
+    <!-- 总览页 -->
+    <div class="page" id="overviewPage">
+        <div class="top-bar">
+            <div class="top-bar-left">
+                <span class="top-bar-title">🏭 蓝图复鼎车间</span>
+                <span class="admin-badge" id="adminBadge" style="display:none;">管理员模式</span>
+            </div>
+            <div class="top-bar-right">
+                <div class="search-box" id="searchBox">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="搜索员工姓名..." autocomplete="off">
+                    <div class="search-results-dropdown" id="searchResults"></div>
+                </div>
+                <button class="btn-admin" id="btnAdminLogin">管理员登录</button>
+                <button class="btn-admin" id="btnAdminLogout" style="display:none;">退出管理</button>
+                <button class="btn-admin" id="btnHistory" style="display:none;">📋 历史记录</button>
+                <button class="btn-admin" id="btnMembers" style="display:none;">👥 成员管理</button>
+                <span id="syncBadge" class="sync-badge" style="display:none;"></span>
+                <span id="userChip" class="user-chip" style="display:none;"></span>
+                <button class="btn-admin" id="btnExport" style="display:none;">📥 导出备份</button>
+                <button class="btn-admin" id="btnImport" style="display:none;">📤 导入备份</button>
+            </div>
+        </div>
+        <div class="overview-container">
+            <div class="overview-header">
+                <h2>车间产线总览</h2>
+                <p>点击产线卡片查看详细布局与岗位信息</p>
+            </div>
+            <div class="lines-grid" id="linesGrid"></div>
+        </div>
+    </div>
+
+    <!-- 详情页 -->
+    <div class="page" id="detailPage">
+        <div class="top-bar">
+            <div class="top-bar-left">
+                <button class="btn-back" id="btnBackToOverview">← 返回总览</button>
+                <span class="top-bar-title" id="detailPageTitle">产线详情</span>
+                <span class="admin-badge" id="adminBadgeDetail" style="display:none;">管理员模式</span>
+            </div>
+            <div class="top-bar-right">
+                <div class="search-box" id="searchBoxDetail">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInputDetail" placeholder="搜索本产线员工..." autocomplete="off">
+                </div>
+                <button class="btn-admin" id="btnAdminLoginDetail">管理员登录</button>
+                <button class="btn-admin" id="btnAdminLogoutDetail" style="display:none;">退出管理</button>
+            </div>
+        </div>
+        <div class="detail-container">
+            <div class="detail-header">
+                <h2 id="detailLineName">产线</h2>
+                <div class="detail-actions" id="detailActions" style="display:none;">
+                    <button class="btn-action primary" id="btnAddStation">➕ 新增岗位</button>
+                    <button class="btn-action" id="btnEditLineName">✏️ 修改产线名称</button>
+                    <button class="btn-action" id="btnExportDetail">📥 导出备份</button>
+                    <button class="btn-action" id="btnImportDetail">📤 导入备份</button>
+                </div>
+            </div>
+            <div class="layout-canvas" id="layoutCanvas"></div>
+        </div>
+    </div>
+
+    <!-- 各种模态框 -->
+    <div class="modal-overlay" id="personModal"><div class="modal-card"><div class="modal-header"><h3 id="personModalTitle">人员信息</h3><button class="modal-close" onclick="closeModal('personModal')">✕</button></div><div class="modal-body" id="personModalBody"></div><div class="modal-actions" id="personModalActions"></div></div></div>
+    <div class="modal-overlay" id="adminModal"><div class="modal-card" style="max-width:480px;"><div class="modal-header"><h3 id="adminModalTitle">管理员登录</h3><button class="modal-close" onclick="closeModal('adminModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>邮箱</label><input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="username" onkeydown="if(event.key==='Enter')submitAuthForm()"></div><div class="form-group"><label>密码</label><input type="password" id="adminPasswordInput" placeholder="至少 6 位" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuthForm()"></div><p id="adminModalHint" style="font-size:0.8rem;color:var(--text-light);margin-top:4px;line-height:1.6;"></p><div id="adminModalError" style="display:none;margin-top:12px;padding:10px 14px;background:#fff5f5;border-radius:6px;font-size:0.9rem;color:var(--accent-red);line-height:1.5;"></div></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('adminModal')">取消</button><button class="btn-action" id="btnAuthSwitchMode">注册新账号</button><button class="btn-action primary" id="btnAuthSubmit">登录</button></div></div></div>
+    <div class="modal-overlay" id="editPersonModal"><div class="modal-card"><div class="modal-header"><h3 id="editPersonModalTitle">编辑人员信息</h3><button class="modal-close" onclick="closeModal('editPersonModal')">✕</button></div><div class="modal-body" id="editPersonModalBody"></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('editPersonModal')">取消</button><button class="btn-action primary" id="btnSavePersonEdit">保存</button></div></div></div>
+    <div class="modal-overlay" id="addStationModal"><div class="modal-card"><div class="modal-header"><h3>新增岗位</h3><button class="modal-close" onclick="closeModal('addStationModal')">✕</button></div><div class="modal-body" id="addStationModalBody"></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('addStationModal')">取消</button><button class="btn-action primary" id="btnSaveNewStation">添加</button></div></div></div>
+    <div class="modal-overlay" id="editLineNameModal"><div class="modal-card" style="max-width:560px;"><div class="modal-header"><h3>修改产线名称</h3><button class="modal-close" onclick="closeModal('editLineNameModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>产线名称</label><input type="text" id="editLineNameInput" placeholder="请输入产线名称"></div></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('editLineNameModal')">取消</button><button class="btn-action primary" onclick="saveLineName()">保存</button></div></div></div>
+    <div class="modal-overlay" id="editDeviceModal"><div class="modal-card" style="max-width:640px;"><div class="modal-header"><h3>编辑设备</h3><button class="modal-close" onclick="closeModal('editDeviceModal')">✕</button></div><div class="modal-body" id="editDeviceModalBody"></div><div class="modal-actions"><button class="btn-action danger" id="btnDeleteDevice">删除设备</button><button class="btn-action" onclick="closeModal('editDeviceModal')">取消</button><button class="btn-action primary" id="btnSaveDeviceEdit">保存</button></div></div></div>
+    <div class="modal-overlay" id="historyModal"><div class="modal-card" style="max-width:880px;"><div class="modal-header"><h3>人员变更历史记录</h3><button class="modal-close" onclick="closeModal('historyModal')">✕</button></div><div class="modal-body"><div class="history-list" id="historyList"></div></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('historyModal')">关闭</button><button class="btn-action danger" onclick="clearHistory()">清空历史</button></div></div></div>
+    <div class="modal-overlay" id="confirmModal"><div class="modal-card" style="max-width:460px;"><div class="modal-header"><h3>确认操作</h3><button class="modal-close" onclick="closeModal('confirmModal')">✕</button></div><div class="modal-body"><p id="confirmModalText" style="font-size:0.95rem;color:var(--text-dark);">确定要执行此操作吗？</p></div><div class="modal-actions"><button class="btn-action" id="btnConfirmCancel">取消</button><button class="btn-action danger" id="btnConfirmYes">确定</button></div></div></div>
+
+    <div class="modal-overlay" id="membersModal"><div class="modal-card" style="max-width:760px;"><div class="modal-header"><h3>成员管理</h3><button class="modal-close" onclick="closeModal('membersModal')">✕</button></div><div class="modal-body" id="membersModalBody"></div><div class="modal-actions"><button class="btn-action" onclick="closeModal('membersModal')">关闭</button></div></div></div>
+    <input type="file" id="importFileInput" accept=".json,application/json" style="display:none;">
+    <script>
+        // ==================== 数据管理 ====================
+        const STORAGE_KEY = 'blueprint_fuding_workshop_data';
+
+        // ==================== 安全存储层 ====================
+        // 部分托管环境（如 ShipPage）使用 CSP sandbox 且不带 allow-same-origin 提供页面，
+        // 此时页面为 opaque origin，localStorage 访问会直接抛 SecurityError。
+        // 这里做能力探测，不可用时自动降级为内存存储：功能完整可用，
+        // 仅刷新后不保留改动，而不是弹出误导性的「存储空间不足」告警。
+        const safeStorage = (function () {
+            let backend = null;
+            try {
+                const probe = '__storage_probe__';
+                localStorage.setItem(probe, '1');
+                localStorage.removeItem(probe);
+                backend = localStorage;
+            } catch (e) {
+                backend = null;
+            }
+            const mem = Object.create(null);
+            return {
+                persistent: !!backend,
+                getItem(k) {
+                    if (backend) {
+                        try { return backend.getItem(k); } catch (e) { return null; }
+                    }
+                    return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null;
+                },
+                setItem(k, v) {
+                    if (backend) {
+                        try { backend.setItem(k, v); return { ok: true }; }
+                        catch (e) { return { ok: false, error: e }; }
+                    }
+                    mem[k] = String(v);
+                    return { ok: true, memory: true };
+                }
+            };
+        })();
+        // ==================== 云端配置 ====================
+        // ↓↓↓ 只需要改下面这两行 ↓↓↓
+        const SUPABASE_URL  = 'https://zduccyueedlxemqtdvll.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_ktKxs6zIWzhaWAXzx6AIeg_TKKJNQHM';
+        // ↑↑↑ 填入 Supabase 的 Project URL 和 anon public key ↑↑↑
+        const DATA_ROW_ID = 'main';
+        function isCloudConfigured() {
+            return SUPABASE_URL.indexOf('YOUR-PROJECT') === -1 && SUPABASE_ANON_KEY.indexOf('YOUR-ANON') === -1;
+        }
+        function sbUrl(p) { return SUPABASE_URL.replace(/\/+$/, '') + p; }
+        function sbHeaders(authed) {
+            const h = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+            if (authed && authSession && authSession.access_token) h['Authorization'] = 'Bearer ' + authSession.access_token;
+            return h;
+        }
+
+        // ==================== 会话与角色 ====================
+        const AUTH_KEY = 'workshop_auth_session';
+        let authSession = null;      // { access_token, refresh_token, expires_at, user }
+        let userRole = null;         // 'super_admin' | 'admin' | 'viewer' | null
+        let suppressSync = false;
+        let syncState = 'idle', syncMessage = '';
+        let lastSyncedAt = null, remoteUpdatedAt = null, pushTimer = null;
+
+        function saveSession(s) { authSession = s; safeStorage.setItem(AUTH_KEY, s ? JSON.stringify(s) : ''); }
+        function restoreSession() {
+            try { const raw = safeStorage.getItem(AUTH_KEY); if (raw) authSession = JSON.parse(raw); }
+            catch (e) { authSession = null; }
+        }
+        function clearSession() { authSession = null; userRole = null; safeStorage.setItem(AUTH_KEY, ''); }
+        function canEdit() { return !!(isAdminMode && authSession && (userRole === 'admin' || userRole === 'super_admin')); }
+
+        async function ensureFreshToken() {
+            if (!authSession) return false;
+            const exp = authSession.expires_at ? authSession.expires_at * 1000 : 0;
+            if (Date.now() < exp - 60000) return true;
+            try {
+                const r = await fetch(sbUrl('/auth/v1/token?grant_type=refresh_token'), {
+                    method: 'POST', headers: sbHeaders(false),
+                    body: JSON.stringify({ refresh_token: authSession.refresh_token })
+                });
+                if (!r.ok) { clearSession(); return false; }
+                const j = await r.json();
+                saveSession({
+                    access_token: j.access_token,
+                    refresh_token: j.refresh_token || authSession.refresh_token,
+                    expires_at: j.expires_at || (Math.floor(Date.now() / 1000) + (j.expires_in || 3600)),
+                    user: j.user || authSession.user
+                });
+                return true;
+            } catch (e) { return false; }
+        }
+        async function loadUserRole() {
+            if (!authSession || !authSession.user) { userRole = null; return; }
+            try {
+                const r = await fetch(sbUrl('/rest/v1/profiles?id=eq.' + authSession.user.id + '&select=role'), { headers: sbHeaders(true) });
+                if (!r.ok) { userRole = 'viewer'; return; }
+                const j = await r.json();
+                userRole = (j && j[0] && j[0].role) || 'viewer';
+            } catch (e) { userRole = 'viewer'; }
+        }
+
+        // ==================== 云同步 ====================
+        async function cloudPull() {
+            if (!isCloudConfigured()) return null;
+            try {
+                const r = await fetch(sbUrl('/rest/v1/workshop_data?id=eq.' + DATA_ROW_ID + '&select=data,updated_at'), { headers: sbHeaders(false) });
+                if (!r.ok) return null;
+                const j = await r.json();
+                return (j && j[0]) ? j[0] : null;
+            } catch (e) { return null; }
+        }
+        async function cloudPush(data) {
+            if (!isCloudConfigured()) return { ok: false, skipped: true };
+            if (!canEdit()) return { ok: false, error: new Error('当前账号没有编辑权限') };
+            if (!await ensureFreshToken()) return { ok: false, error: new Error('登录已过期，请重新登录') };
+            try {
+                const r = await fetch(sbUrl('/rest/v1/workshop_data?id=eq.' + DATA_ROW_ID), {
+                    method: 'PATCH',
+                    headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=representation' }),
+                    body: JSON.stringify({ data: data, updated_at: new Date().toISOString() })
+                });
+                if (!r.ok) {
+                    const t = await r.text();
+                    return { ok: false, error: new Error('云端保存失败（' + r.status + '）：' + t.slice(0, 160)) };
+                }
+                return { ok: true };
+            } catch (e) { return { ok: false, error: e }; }
+        }
+        function setSyncState(state, msg) { syncState = state; syncMessage = msg || ''; renderSyncBadge(); }
+        function scheduleCloudPush() {
+            if (suppressSync || !isCloudConfigured()) return;
+            if (!canEdit()) { setSyncState('idle'); return; }
+            setSyncState('syncing');
+            clearTimeout(pushTimer);
+            pushTimer = setTimeout(async function () {
+                const res = await cloudPush(loadData());
+                if (res.ok) { lastSyncedAt = new Date(); setSyncState('ok'); }
+                else setSyncState('error', res.error && res.error.message);
+            }, 800);
+        }
+        function renderSyncBadge() {
+            const el = document.getElementById('syncBadge');
+            if (!el) return;
+            if (!isCloudConfigured()) { el.style.display = 'none'; return; }
+            const map = {
+                idle:    { cls: 's-offline', text: canEdit() ? '待同步' : '只读浏览' },
+                syncing: { cls: 's-syncing', text: '同步中…' },
+                ok:      { cls: 's-ok',      text: '已同步' + (lastSyncedAt ? ' ' + lastSyncedAt.toTimeString().slice(0, 5) : '') },
+                error:   { cls: 's-error',   text: '同步失败' }
+            };
+            const m = map[syncState] || map.idle;
+            el.className = 'sync-badge ' + m.cls;
+            el.style.display = 'inline-flex';
+            el.innerHTML = '<span class="dot"></span><span>' + m.text + '</span>';
+            el.title = syncMessage || '';
+        }
+        function renderUserChip() {
+            const chip = document.getElementById('userChip');
+            if (!chip) return;
+            if (!authSession || !authSession.user) { chip.style.display = 'none'; return; }
+            const tag = userRole === 'super_admin' ? '超管' : (userRole === 'admin' ? '管理员' : '访客');
+            chip.style.display = 'inline-flex';
+            chip.innerHTML = '<span>' + escapeHtml(authSession.user.email || '') + '</span><span class="role-tag">' + tag + '</span>';
+        }
+        const NEW_INDICATOR_DAYS = 7;
+        let currentLineId = null;
+        let currentStationId = null;
+        let currentDeviceId = null;
+        let isAdminMode = false;
+        let highlightedStationId = null;
+        let confirmCallback = null;
+        let confirmCancelCallback = null;
+        let hasPendingPositionChanges = false;
+        // 暂存尚未落盘的位置变更：key = 'station:3' / 'device:7'，value = { type, id, lineId, x, y }
+        let pendingPositions = {};
+
+        // 拖拽状态
+        let dragState = {
+            isDragging: false, startClientX: 0, startClientY: 0,
+            startLeftPercent: 0, startTopPercent: 0, moved: false,
+            targetType: null, targetId: null, element: null, canvasRect: null
+        };
+
+        function getDefaultData() {
+            return {
+                productionLines: [
+                    {
+                        id: 'line1', name: '产线1 · 冲压线',
+                        devices: [
+                            { id: 'dev1-1', name: '冲压机A', x: 8, y: 12, w: 14, h: 12 },
+                            { id: 'dev1-2', name: '冲压机B', x: 35, y: 10, w: 14, h: 14 },
+                            { id: 'dev1-3', name: '传送带', x: 55, y: 35, w: 30, h: 8 },
+                            { id: 'dev1-4', name: '质检台', x: 78, y: 15, w: 10, h: 10 },
+                        ],
+                        stations: [
+                            { id: 'st1-1', name: '上料岗', x: 12, y: 32, employee: makeEmployee('张伟', '上料操作工', '负责原材料上料与设备启动前检查', '注意设备运行中的安全距离，佩戴防护手套', '2026-08-20', false, null, null) },
+                            { id: 'st1-2', name: '操作岗', x: 40, y: 32, employee: makeEmployee('李强', '冲压操作工', '负责冲压设备操作与参数监控', '操作时注意模具安全，禁止将手伸入工作区', '2026-08-25', false, null, null) },
+                            { id: 'st1-3', name: '质检岗', x: 72, y: 38, employee: makeEmployee('王芳', '质检员', '负责成品质量检验与记录', '使用检测仪器时注意校准，做好防护', '2026-08-18', false, null, null) },
+                        ]
+                    },
+                    {
+                        id: 'line2', name: '产线2 · 焊接线',
+                        devices: [
+                            { id: 'dev2-1', name: '焊接机器人A', x: 10, y: 15, w: 16, h: 14 },
+                            { id: 'dev2-2', name: '焊接机器人B', x: 38, y: 12, w: 16, h: 16 },
+                            { id: 'dev2-3', name: '传送带', x: 58, y: 30, w: 28, h: 8 },
+                            { id: 'dev2-4', name: '焊渣清理区', x: 80, y: 12, w: 12, h: 10 },
+                        ],
+                        stations: [
+                            { id: 'st2-1', name: '上件岗', x: 12, y: 38, employee: makeEmployee('赵磊', '上件操作工', '负责焊接件上料与定位', '注意焊接飞溅物，佩戴护目镜和防护服', '2026-09-01', true, '2026-09-01', null) },
+                            { id: 'st2-2', name: '监控岗', x: 42, y: 36, employee: makeEmployee('陈静', '焊接监控员', '负责焊接过程监控与质量检查', '保持安全距离，监控焊接参数异常及时处理', '2026-08-22', false, null, null) },
+                            { id: 'st2-3', name: '下件岗', x: 72, y: 34, employee: makeEmployee('刘洋', '下件操作工', '负责焊接件下线与码放', '注意工件温度，佩戴防烫手套', '2026-08-28', false, null, null) },
+                        ]
+                    },
+                    {
+                        id: 'line3', name: '产线3 · 装配线',
+                        devices: [
+                            { id: 'dev3-1', name: '装配台A', x: 8, y: 12, w: 14, h: 12 },
+                            { id: 'dev3-2', name: '装配台B', x: 30, y: 10, w: 14, h: 14 },
+                            { id: 'dev3-3', name: '检测台', x: 52, y: 14, w: 14, h: 12 },
+                            { id: 'dev3-4', name: '传送带', x: 72, y: 30, w: 22, h: 8 },
+                        ],
+                        stations: [
+                            { id: 'st3-1', name: '装配岗A', x: 12, y: 34, employee: makeEmployee('孙丽', '装配工', '负责零部件装配与紧固', '使用气动工具时注意气压安全', '2026-08-30', true, '2026-08-30', null) },
+                            { id: 'st3-2', name: '装配岗B', x: 34, y: 34, employee: makeEmployee('周杰', '装配工', '负责精密部件装配与调试', '精密操作佩戴防静电手环', '2026-08-21', false, null, null) },
+                            { id: 'st3-3', name: '检测岗', x: 56, y: 36, employee: makeEmployee('吴敏', '检测员', '负责装配成品功能检测', '检测设备使用前校准，注意用电安全', '2026-08-19', false, null, null) },
+                        ]
+                    },
+                    {
+                        id: 'line4', name: '产线4 · 包装线',
+                        devices: [
+                            { id: 'dev4-1', name: '包装机A', x: 10, y: 12, w: 15, h: 14 },
+                            { id: 'dev4-2', name: '封箱机', x: 38, y: 10, w: 14, h: 12 },
+                            { id: 'dev4-3', name: '码垛机', x: 60, y: 12, w: 16, h: 16 },
+                            { id: 'dev4-4', name: '传送带', x: 28, y: 34, w: 40, h: 8 },
+                        ],
+                        stations: [
+                            { id: 'st4-1', name: '包装岗', x: 14, y: 34, employee: makeEmployee('郑浩', '包装操作工', '负责产品包装与标签粘贴', '注意包装材料防火，保持工作区整洁', '2026-08-26', false, null, null) },
+                            { id: 'st4-2', name: '封箱岗', x: 42, y: 36, employee: makeEmployee('林霞', '封箱操作工', '负责纸箱封口与标识打印', '封箱机运行中禁止手伸入', '2026-08-23', false, null, null) },
+                            { id: 'st4-3', name: '码垛岗', x: 68, y: 34, employee: makeEmployee('马超', '码垛操作工', '负责成品码垛与入库登记', '使用叉车时注意周围人员安全', '2026-09-02', true, '2026-09-02', null) },
+                        ]
+                    },
+                ],
+                history: [
+                    { id: 1, type: '系统初始化', lineName: '全部产线', details: '初始化车间数据', timestamp: '2026-08-15T09:00:00' },
+                    { id: 2, type: '换人', lineName: '产线2 · 焊接线', details: '上件岗人员更换为 赵磊', timestamp: '2026-09-01T14:30:00' },
+                    { id: 3, type: '换人', lineName: '产线3 · 装配线', details: '装配岗A人员更换为 孙丽', timestamp: '2026-08-30T10:00:00' },
+                    { id: 4, type: '换人', lineName: '产线4 · 包装线', details: '码垛岗人员更换为 马超', timestamp: '2026-09-02T08:20:00' },
+                ]
+            };
+        }
+
+        function makeEmployee(name, position, responsibilities, notes, lastUpdated, isNew, newSince, confirmedAt) {
+            return { name, position, responsibilities, notes, lastUpdated, isNew, newSince, confirmedAt };
+        }
+
+        function loadData() {
+            try {
+                const raw = safeStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    data.productionLines.forEach(line => {
+                        line.stations.forEach(station => {
+                            if (station.employee && station.employee.isNew && station.employee.newSince) {
+                                const days = getDaysSince(station.employee.newSince);
+                                if (days > NEW_INDICATOR_DAYS) {
+                                    station.employee.isNew = false;
+                                    station.employee.newSince = null;
+                                }
+                            }
+                        });
+                    });
+                    return data;
+                }
+            } catch (e) { console.error('加载数据失败:', e); }
+            const defaultData = getDefaultData();
+            suppressSync = true;
+            saveData(defaultData);
+            suppressSync = false;
+            return defaultData;
+        }
+
+        function saveData(data) {
+            const res = safeStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            if (!res.ok) {
+                console.error('保存数据失败:', res.error);
+                const name = res.error && res.error.name;
+                if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    alert('数据保存失败：浏览器存储空间已满。\n建议先用「导出备份」保存数据，再清理浏览器站点数据后重试。');
+                } else {
+                    alert('数据保存失败：当前环境不允许本地存储。\n你的修改在本次浏览中有效，但刷新页面后会恢复默认数据。');
+                }
+            }
+            scheduleCloudPush();
+        }
+
+        function getDaysSince(dateStr) {
+            if (!dateStr) return 999;
+            const d = new Date(dateStr);
+            const now = new Date();
+            return Math.floor((now - d) / (1000 * 60 * 60 * 24));
+        }
+
+        function addHistory(type, lineName, details, dataObj = null) {
+            const data = dataObj || loadData();
+            const newId = data.history.length > 0 ? Math.max(...data.history.map(h => h.id)) + 1 : 1;
+            data.history.push({ id: newId, type, lineName, details, timestamp: new Date().toISOString() });
+            saveData(data);
+        }
+
+        function clearHistory() {
+            showConfirm('确定要清空所有历史记录吗？此操作不可撤销。', () => {
+                const data = loadData();
+                data.history = [];
+                saveData(data);
+                closeModal('historyModal');
+                alert('历史记录已清空');
+            });
+        }
+
+        // ==================== 页面导航 ====================
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        document.getElementById('btnEnterWorkshop').addEventListener('click', () => {
+            showPage('overviewPage');
+            renderOverview();
+        });
+
+        // ==================== 渲染总览页 ====================
+        function renderOverview() {
+            const data = loadData();
+            const grid = document.getElementById('linesGrid');
+            grid.innerHTML = '';
+            data.productionLines.forEach(line => {
+                const newCount = line.stations.filter(s => s.employee && s.employee.isNew).length;
+                const card = document.createElement('div');
+                card.className = 'line-card' + (isAdminMode ? ' admin-mode' : '');
+                card.innerHTML = `
+                    <div class="line-card-header">
+                        <span class="line-name">${escapeHtml(line.name)}</span>
+                        ${isAdminMode ? `<span class="edit-icon" title="编辑产线名称" onclick="event.stopPropagation();openEditLineName('${line.id}')">✏️</span>` : ''}
+                    </div>
+                    <div class="line-card-body">
+                        <div class="line-stats">
+                            <span>岗位 ${line.stations.length} 个</span>
+                            <span>设备 ${line.devices.length} 台</span>
+                            ${newCount > 0 ? `<span class="new-badge-count">🔔 ${newCount}人换新</span>` : ''}
+                        </div>
+                        <span class="line-arrow">→</span>
+                    </div>
+                    <div class="line-card-preview">点击查看平面布局与人员详情</div>
+                `;
+                card.addEventListener('click', () => openLineDetail(line.id));
+                grid.appendChild(card);
+            });
+            updateAdminUI();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== 打开产线详情 ====================
+        function openLineDetail(lineId) {
+            currentLineId = lineId;
+            highlightedStationId = null;
+            hasPendingPositionChanges = false;
+            Object.keys(pendingPositions).forEach(function (k) { delete pendingPositions[k]; });
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === lineId);
+            if (!line) return;
+            document.getElementById('detailLineName').textContent = line.name;
+            document.getElementById('detailPageTitle').textContent = line.name;
+            renderLayout(line);
+            showPage('detailPage');
+            updateAdminUI();
+        }
+
+        // ==================== 渲染产线布局 ====================
+        function renderLayout(line) {
+            const canvas = document.getElementById('layoutCanvas');
+            canvas.innerHTML = '';
+            line.devices.forEach(dev => {
+                const devEl = document.createElement('div');
+                devEl.className = 'layout-device';
+                devEl.dataset.deviceId = dev.id;
+                devEl.style.left = dev.x + '%';
+                devEl.style.top = dev.y + '%';
+                devEl.style.width = dev.w + '%';
+                devEl.style.height = dev.h + '%';
+                devEl.textContent = dev.name;
+                devEl.title = dev.name + (isAdminMode ? '（双击编辑）' : '');
+                canvas.appendChild(devEl);
+                if (isAdminMode) {
+                    enableDragOnDevice(devEl, line, dev.id);
+                    // 与人员一致：双击才打开编辑弹窗，单击/拖动不再误弹
+                    devEl.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        openEditDevice(dev.id);
+                    });
+                }
+            });
+            line.stations.forEach(station => {
+                const marker = document.createElement('div');
+                marker.className = 'station-marker';
+                marker.dataset.stationId = station.id;
+                if (highlightedStationId === station.id) marker.classList.add('highlighted');
+                marker.style.left = station.x + '%';
+                marker.style.top = station.y + '%';
+                const emp = station.employee || { name: '未分配', position: '待定', isNew: false };
+                const showNew = emp.isNew;
+                marker.innerHTML = `
+                    <div class="station-hover-tip">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}（双击查看详情）</div>
+                    <div class="station-icon">👤${showNew ? '<span class="new-indicator">新</span>' : ''}</div>
+                    <span class="station-label">${escapeHtml(station.name)}</span>
+                    ${isAdminMode ? `<button class="btn-delete-station" title="删除岗位" onclick="event.stopPropagation();deleteStation('${station.id}')">×</button>` : ''}
+                `;
+                marker.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    openPersonCard(line.id, station.id);
+                });
+                if (isAdminMode) enableDragOnStation(marker, line, station.id);
+                canvas.appendChild(marker);
+            });
+        }
+
+        // ==================== 拖拽功能 ====================
+        function enableDragOnStation(element, line, stationId) {
+            element.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.btn-delete-station')) return;
+                e.preventDefault(); e.stopPropagation();
+                startDrag(e.clientX, e.clientY, element, line, 'station', stationId);
+            });
+            element.addEventListener('touchstart', (e) => {
+                if (e.target.closest('.btn-delete-station')) return;
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    e.preventDefault(); e.stopPropagation();
+                    startDrag(touch.clientX, touch.clientY, element, line, 'station', stationId);
+                }
+            }, { passive: false });
+        }
+
+        function enableDragOnDevice(element, line, deviceId) {
+            element.addEventListener('mousedown', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                startDrag(e.clientX, e.clientY, element, line, 'device', deviceId);
+            });
+            element.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    e.preventDefault(); e.stopPropagation();
+                    startDrag(touch.clientX, touch.clientY, element, line, 'device', deviceId);
+                }
+            }, { passive: false });
+        }
+
+        function startDrag(clientX, clientY, element, line, targetType, targetId) {
+            if (!isAdminMode) return;
+            dragState.isDragging = true;
+            dragState.moved = false;
+            dragState.startClientX = clientX;
+            dragState.startClientY = clientY;
+            dragState.targetType = targetType;
+            dragState.targetId = targetId;
+            dragState.element = element;
+            dragState.canvasRect = document.getElementById('layoutCanvas').getBoundingClientRect();
+            dragState.startLeftPercent = parseFloat(element.style.left);
+            dragState.startTopPercent = parseFloat(element.style.top);
+            element.classList.add('dragging');
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragEnd);
+            document.addEventListener('touchmove', onDragMove, { passive: false });
+            document.addEventListener('touchend', onDragEnd);
+            document.addEventListener('touchcancel', onDragEnd);
+        }
+
+        function onDragMove(e) {
+            if (!dragState.isDragging) return;
+            e.preventDefault();
+            let clientX, clientY;
+            if (e.type === 'mousemove') { clientX = e.clientX; clientY = e.clientY; }
+            else if (e.type === 'touchmove' && e.touches.length === 1) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+            else return;
+            const dx = clientX - dragState.startClientX;
+            const dy = clientY - dragState.startClientY;
+            if (!dragState.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) dragState.moved = true;
+            const canvas = dragState.canvasRect;
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const startLeftPx = (dragState.startLeftPercent / 100) * canvasWidth;
+            const startTopPx = (dragState.startTopPercent / 100) * canvasHeight;
+            let newLeftPx = startLeftPx + dx;
+            let newTopPx = startTopPx + dy;
+            const elW = dragState.element.offsetWidth || 40;
+            const elH = dragState.element.offsetHeight || 40;
+            newLeftPx = Math.max(0, Math.min(canvasWidth - elW, newLeftPx));
+            newTopPx = Math.max(0, Math.min(canvasHeight - elH, newTopPx));
+            dragState.element.style.left = ((newLeftPx / canvasWidth) * 100) + '%';
+            dragState.element.style.top = ((newTopPx / canvasHeight) * 100) + '%';
+        }
+
+        function onDragEnd(e) {
+            if (!dragState.isDragging) return;
+            dragState.isDragging = false;
+            dragState.element.classList.remove('dragging');
+            document.removeEventListener('mousemove', onDragMove);
+            document.removeEventListener('mouseup', onDragEnd);
+            document.removeEventListener('touchmove', onDragMove);
+            document.removeEventListener('touchend', onDragEnd);
+            document.removeEventListener('touchcancel', onDragEnd);
+
+            if (dragState.moved && dragState.targetId) {
+                const newLeft = parseFloat(dragState.element.style.left);
+                const newTop = parseFloat(dragState.element.style.top);
+                const targetType = dragState.targetType;
+                const targetId = dragState.targetId;
+                const lineId = currentLineId;
+
+                // 新坐标先暂存，等用户确认后再统一落盘。
+                // 刻意不在这里写库，否则用户点「不保存」时无法还原。
+                if (lineId) {
+                    pendingPositions[targetType + ':' + targetId] = {
+                        type: targetType, id: targetId, lineId: lineId,
+                        x: Math.round(newLeft * 10) / 10,
+                        y: Math.round(newTop * 10) / 10
+                    };
+                    hasPendingPositionChanges = true;
+                    updatePendingBadge();
+                }
+            }
+
+            dragState.moved = false;
+            dragState.element = null;
+            dragState.targetId = null;
+            dragState.targetType = null;
+            dragState.canvasRect = null;
+        }
+
+        // ==================== 保存/丢弃未保存更改 ====================
+        function savePendingPositionChanges() {
+            if (!hasPendingPositionChanges) return;
+            const data = loadData();
+            const touched = [];
+            Object.keys(pendingPositions).forEach(function (key) {
+                const p = pendingPositions[key];
+                const line = data.productionLines.find(l => l.id === p.lineId);
+                if (!line) return;
+                let target = null;
+                if (p.type === 'station') target = line.stations.find(s => s.id === p.id);
+                else if (p.type === 'device') target = line.devices.find(d => d.id === p.id);
+                if (target) {
+                    target.x = p.x;
+                    target.y = p.y;
+                    if (touched.indexOf(line) === -1) touched.push(line);
+                }
+            });
+            Object.keys(pendingPositions).forEach(function (k) { delete pendingPositions[k]; });
+            touched.forEach(function (line) {
+                addHistory('批量调整位置', line.name, '保存了移动后的位置更改', data);
+            });
+            saveData(data);
+            hasPendingPositionChanges = false;
+            updatePendingBadge();
+        }
+
+        function discardPendingPositionChanges() {
+            if (!hasPendingPositionChanges) return;
+            Object.keys(pendingPositions).forEach(function (k) { delete pendingPositions[k]; });
+            hasPendingPositionChanges = false;
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            if (line) renderLayout(line);
+            updatePendingBadge();
+        }
+
+        function checkPendingBeforeLeave(callback) {
+            if (hasPendingPositionChanges) {
+                showConfirm('您有未保存的位置更改，是否保存？', () => {
+                    savePendingPositionChanges();
+                    if (callback) callback();
+                }, () => {
+                    discardPendingPositionChanges();
+                    if (callback) callback();
+                });
+            } else {
+                if (callback) callback();
+            }
+        }
+
+        // ==================== 未保存提示 ====================
+        function updatePendingBadge() {
+            let badge = document.getElementById('pendingBadge');
+            if (!hasPendingPositionChanges) {
+                if (badge) badge.remove();
+                return;
+            }
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.id = 'pendingBadge';
+                const span = document.createElement('span');
+                span.textContent = '\u25cf 有未保存的位置更改';
+                const btn = document.createElement('button');
+                btn.textContent = '立即保存';
+                btn.onclick = function () {
+                    savePendingPositionChanges();
+                    showToast('位置更改已保存');
+                };
+                badge.appendChild(span);
+                badge.appendChild(btn);
+                document.body.appendChild(badge);
+            }
+        }
+
+        function showToast(msg) {
+            let t = document.getElementById('toastMsg');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'toastMsg';
+                document.body.appendChild(t);
+            }
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+        }
+
+        // ==================== 设备编辑 ====================
+        function openEditDevice(deviceId) {
+            currentDeviceId = deviceId;
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const device = line.devices.find(d => d.id === deviceId);
+            if (!device) return;
+            document.getElementById('editDeviceModalBody').innerHTML = `
+                <div class="form-group"><label>设备名称</label><input type="text" id="editDeviceName" value="${escapeHtml(device.name)}"></div>
+                <div class="form-group"><label>宽度 (%)</label><input type="number" id="editDeviceW" value="${device.w}" min="2" max="90"></div>
+                <div class="form-group"><label>高度 (%)</label><input type="number" id="editDeviceH" value="${device.h}" min="2" max="90"></div>
+                <p style="font-size:0.75rem;color:var(--text-light);">提示：拖拽设备可改变位置，这里可修改名称和尺寸。</p>
+            `;
+            document.getElementById('btnSaveDeviceEdit').onclick = saveDeviceEdit;
+            document.getElementById('btnDeleteDevice').onclick = deleteCurrentDevice;
+            openModal('editDeviceModal');
+        }
+
+        function saveDeviceEdit() {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const device = line.devices.find(d => d.id === currentDeviceId);
+            if (!device) return;
+            const newName = document.getElementById('editDeviceName').value.trim();
+            const newW = parseFloat(document.getElementById('editDeviceW').value);
+            const newH = parseFloat(document.getElementById('editDeviceH').value);
+            if (!newName || isNaN(newW) || isNaN(newH) || newW < 2 || newH < 2) {
+                alert('请输入有效的设备名称和尺寸（宽度和高度至少为2%）');
+                return;
+            }
+            const confirmText = `确定保存设备"${device.name}"的更改吗？名称变为"${newName}"，尺寸变为 ${newW}% x ${newH}%`;
+            const doSave = () => {
+                const currentData = loadData();
+                const currentLine = currentData.productionLines.find(l => l.id === currentLineId);
+                const dev = currentLine.devices.find(d => d.id === currentDeviceId);
+                if (dev) {
+                    const oldName = dev.name;
+                    dev.name = newName;
+                    dev.w = Math.min(90, newW);
+                    dev.h = Math.min(90, newH);
+                    addHistory('编辑设备', currentLine.name, `设备 ${oldName} 更新为 ${newName}，尺寸调整为 ${dev.w}% x ${dev.h}%`, currentData);
+                }
+                closeModal('editDeviceModal');
+                renderLayout(currentLine);
+                renderOverview();
+            };
+            const doCancel = () => {};
+            showConfirm(confirmText, doSave, doCancel);
+        }
+
+        function deleteCurrentDevice() {
+            showConfirm('确定要删除该设备吗？', () => {
+                const data = loadData();
+                const line = data.productionLines.find(l => l.id === currentLineId);
+                const device = line.devices.find(d => d.id === currentDeviceId);
+                if (!device) return;
+                line.devices = line.devices.filter(d => d.id !== currentDeviceId);
+                saveData(data);
+                addHistory('删除设备', line.name, `删除设备 ${device.name}`, data);
+                closeModal('editDeviceModal');
+                closeModal('confirmModal');
+                renderLayout(line);
+                renderOverview();
+                alert('设备已删除');
+            });
+        }
+
+        // ==================== 人物信息卡片 ====================
+        function openPersonCard(lineId, stationId) {
+            currentLineId = lineId;
+            currentStationId = stationId;
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === lineId);
+            const station = line.stations.find(s => s.id === stationId);
+            if (!station || !station.employee) { alert('该岗位暂无人员信息'); return; }
+            const emp = station.employee;
+            document.getElementById('personModalTitle').textContent = `${emp.name} - ${emp.position}`;
+            const body = document.getElementById('personModalBody');
+            body.innerHTML = `
+                <div class="info-field"><span class="field-label">员工姓名</span><span class="field-value">${escapeHtml(emp.name)}</span></div>
+                <div class="info-field"><span class="field-label">岗位名称</span><span class="field-value">${escapeHtml(station.name)}（${escapeHtml(emp.position)}）</span></div>
+                <div class="info-field"><span class="field-label">岗位职责</span><span class="field-value">${escapeHtml(emp.responsibilities || '未填写')}</span></div>
+                <div class="info-field"><span class="field-label">注意事项</span><span class="field-value">${escapeHtml(emp.notes || '未填写')}</span></div>
+                <div class="info-field"><span class="field-label">最近更新</span><span class="field-value">${escapeHtml(emp.lastUpdated || '未知')}</span></div>
+                ${emp.isNew ? `<div style="margin-top:12px;padding:10px 14px;background:#fff5f5;border-radius:6px;font-size:0.9rem;color:var(--accent-red);font-weight:600;">🔔 该岗位近期有人员变更</div>` : ''}
+            `;
+            const actions = document.getElementById('personModalActions');
+            actions.innerHTML = '';
+            if (isAdminMode) {
+                actions.innerHTML = `
+                    <button class="btn-action" onclick="closeModal('personModal')">关闭</button>
+                    <button class="btn-action primary" onclick="openEditPerson('${stationId}')">✏️ 编辑</button>
+                    ${emp.isNew ? `<button class="btn-action" onclick="confirmNewIndicator('${stationId}')">✅ 确认已查看</button>` : ''}
+                `;
+            } else {
+                actions.innerHTML = `<button class="btn-action" onclick="closeModal('personModal')">关闭</button>`;
+            }
+            openModal('personModal');
+        }
+
+        function confirmNewIndicator(stationId) {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const station = line.stations.find(s => s.id === stationId);
+            if (station && station.employee) {
+                station.employee.isNew = false;
+                station.employee.confirmedAt = new Date().toISOString();
+                station.employee.newSince = null;
+                saveData(data);
+                addHistory('确认换人', line.name, `${station.name}（${station.employee.name}）换人标识已确认`, data);
+                closeModal('personModal');
+                renderLayout(line);
+                renderOverview();
+                alert('已确认，换人标识已消除');
+            }
+        }
+
+        // ==================== 编辑人员信息 ====================
+        function openEditPerson(stationId) {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const station = line.stations.find(s => s.id === stationId);
+            if (!station || !station.employee) return;
+            const emp = station.employee;
+            document.getElementById('editPersonModalTitle').textContent = `编辑 ${emp.name} 的信息`;
+            document.getElementById('editPersonModalBody').innerHTML = `
+                <div class="form-group"><label>员工姓名</label><input type="text" id="editEmpName" value="${escapeHtml(emp.name)}"></div>
+                <div class="form-group"><label>岗位名称（职务）</label><input type="text" id="editEmpPosition" value="${escapeHtml(emp.position)}"></div>
+                <div class="form-group"><label>岗位职责</label><textarea id="editEmpResponsibilities">${escapeHtml(emp.responsibilities || '')}</textarea></div>
+                <div class="form-group"><label>安全/操作注意事项</label><textarea id="editEmpNotes">${escapeHtml(emp.notes || '')}</textarea></div>
+            `;
+            document.getElementById('btnSavePersonEdit').onclick = () => savePersonEdit(stationId, emp.name);
+            closeModal('personModal');
+            openModal('editPersonModal');
+        }
+
+        function savePersonEdit(stationId, oldName) {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const station = line.stations.find(s => s.id === stationId);
+            if (!station || !station.employee) return;
+            const newName = document.getElementById('editEmpName').value.trim();
+            const newPosition = document.getElementById('editEmpPosition').value.trim();
+            const newResp = document.getElementById('editEmpResponsibilities').value.trim();
+            const newNotes = document.getElementById('editEmpNotes').value.trim();
+            if (!newName) { alert('员工姓名不能为空'); return; }
+            const nameChanged = (newName !== oldName);
+            const confirmText = `确定保存对 ${oldName} 的信息更改吗？` + (nameChanged ? `（姓名由 ${oldName} 变更为 ${newName}）` : '');
+            const doSave = () => {
+                const currentData = loadData();
+                const currentLine = currentData.productionLines.find(l => l.id === currentLineId);
+                const st = currentLine.stations.find(s => s.id === stationId);
+                if (st && st.employee) {
+                    st.employee.name = newName;
+                    st.employee.position = newPosition || '未指定';
+                    st.employee.responsibilities = newResp;
+                    st.employee.notes = newNotes;
+                    st.employee.lastUpdated = new Date().toISOString().split('T')[0];
+                    if (nameChanged) {
+                        st.employee.isNew = true;
+                        st.employee.newSince = new Date().toISOString();
+                        st.employee.confirmedAt = null;
+                    }
+                    const historyEntry = {
+                        id: currentData.history.length > 0 ? Math.max(...currentData.history.map(h => h.id)) + 1 : 1,
+                        type: nameChanged ? '换人' : '更新信息',
+                        lineName: currentLine.name,
+                        details: nameChanged ? `${st.name}人员由 ${oldName} 更换为 ${newName}` : `${st.name}（${newName}）信息已更新`,
+                        timestamp: new Date().toISOString()
+                    };
+                    currentData.history.push(historyEntry);
+                    saveData(currentData);
+                }
+                closeModal('editPersonModal');
+                renderLayout(currentLine);
+                renderOverview();
+            };
+            const doCancel = () => {};
+            showConfirm(confirmText, doSave, doCancel);
+        }
+
+        // ==================== 删除岗位 ====================
+        function deleteStation(stationId) {
+            showConfirm('确定要删除该岗位吗？人员信息将一并删除。', () => {
+                const data = loadData();
+                const line = data.productionLines.find(l => l.id === currentLineId);
+                const station = line.stations.find(s => s.id === stationId);
+                if (!station) return;
+                const stationName = station.name;
+                const empName = station.employee ? station.employee.name : '未分配';
+                line.stations = line.stations.filter(s => s.id !== stationId);
+                saveData(data);
+                addHistory('删除岗位', line.name, `删除岗位 ${stationName}（${empName}）`, data);
+                renderLayout(line);
+                renderOverview();
+                closeModal('confirmModal');
+                alert('岗位已删除');
+            });
+        }
+
+        // ==================== 新增岗位 ====================
+        function openAddStation() {
+            document.getElementById('addStationModalBody').innerHTML = `
+                <div class="form-group"><label>岗位名称</label><input type="text" id="addStationName" placeholder="如：新岗位"></div>
+                <div class="form-group"><label>岗位在布局中的X位置（0-90%）</label><input type="number" id="addStationX" value="50" min="2" max="88"></div>
+                <div class="form-group"><label>岗位在布局中的Y位置（0-80%）</label><input type="number" id="addStationY" value="40" min="2" max="78"></div>
+                <div class="form-group"><label>员工姓名</label><input type="text" id="addEmpName" placeholder="员工姓名"></div>
+                <div class="form-group"><label>岗位职务</label><input type="text" id="addEmpPosition" placeholder="如：操作工"></div>
+                <div class="form-group"><label>岗位职责</label><textarea id="addEmpResp" placeholder="岗位职责描述"></textarea></div>
+                <div class="form-group"><label>注意事项</label><textarea id="addEmpNotes" placeholder="安全/操作注意事项"></textarea></div>
+            `;
+            document.getElementById('btnSaveNewStation').onclick = saveNewStation;
+            openModal('addStationModal');
+        }
+
+        function saveNewStation() {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const name = document.getElementById('addStationName').value.trim();
+            const x = parseFloat(document.getElementById('addStationX').value) || 50;
+            const y = parseFloat(document.getElementById('addStationY').value) || 40;
+            const empName = document.getElementById('addEmpName').value.trim() || '未分配';
+            const empPos = document.getElementById('addEmpPosition').value.trim() || '待定';
+            const empResp = document.getElementById('addEmpResp').value.trim();
+            const empNotes = document.getElementById('addEmpNotes').value.trim();
+            if (!name) { alert('岗位名称不能为空'); return; }
+            const stationId = 'st' + Date.now();
+            const emp = makeEmployee(empName, empPos, empResp, empNotes, new Date().toISOString().split('T')[0], false, null, null);
+            line.stations.push({ id: stationId, name, x: Math.max(2, Math.min(88, x)), y: Math.max(2, Math.min(78, y)), employee: emp });
+            saveData(data);
+            addHistory('新增岗位', line.name, `新增岗位 ${name}（${empName}）`, data);
+            closeModal('addStationModal');
+            renderLayout(line);
+            renderOverview();
+            alert('岗位已添加');
+        }
+
+        // ==================== 修改产线名称 ====================
+        function openEditLineName(lineId) {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === lineId);
+            if (!line) return;
+            document.getElementById('editLineNameInput').value = line.name;
+            document.getElementById('editLineNameModal').dataset.lineId = lineId;
+            openModal('editLineNameModal');
+        }
+
+        function saveLineName() {
+            const lineId = document.getElementById('editLineNameModal').dataset.lineId;
+            const newName = document.getElementById('editLineNameInput').value.trim();
+            if (!newName) { alert('产线名称不能为空'); return; }
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === lineId);
+            if (!line) return;
+            const oldName = line.name;
+            line.name = newName;
+            saveData(data);
+            addHistory('修改产线名称', newName, `产线名称由 "${oldName}" 修改为 "${newName}"`, data);
+            closeModal('editLineNameModal');
+            renderOverview();
+            if (currentLineId === lineId) {
+                document.getElementById('detailLineName').textContent = newName;
+                document.getElementById('detailPageTitle').textContent = newName;
+            }
+            alert('产线名称已更新');
+        }
+
+        // ==================== 管理员登录/退出 ====================
+        // ==================== 登录 / 注册 ====================
+        let authMode = 'login';
+        function openAdminLogin() {
+            authMode = 'login';
+            document.getElementById('adminEmailInput').value = '';
+            document.getElementById('adminPasswordInput').value = '';
+            applyAuthMode();
+            openModal('adminModal');
+        }
+        function applyAuthMode() {
+            const isLogin = authMode === 'login';
+            document.getElementById('adminModalTitle').textContent = isLogin ? '管理员登录' : '注册新账号';
+            document.getElementById('btnAuthSubmit').textContent = isLogin ? '登录' : '注册';
+            document.getElementById('btnAuthSwitchMode').textContent = isLogin ? '注册新账号' : '返回登录';
+            document.getElementById('adminModalHint').innerHTML = isLogin
+                ? '用你的管理员邮箱登录。普通访客无需登录即可浏览最新数据。'
+                : '注册后需由超级管理员在「成员管理」中授予权限，才能编辑。';
+            const e = document.getElementById('adminModalError');
+            e.style.display = 'none';
+            e.style.background = '#fff5f5'; e.style.color = 'var(--accent-red)';
+        }
+        function toggleAuthMode() { authMode = authMode === 'login' ? 'register' : 'login'; applyAuthMode(); }
+        function showAuthError(msg) {
+            const e = document.getElementById('adminModalError');
+            e.textContent = msg; e.style.display = 'block';
+        }
+        async function submitAuthForm() {
+            const email = document.getElementById('adminEmailInput').value.trim();
+            const pwd = document.getElementById('adminPasswordInput').value;
+            const btn = document.getElementById('btnAuthSubmit');
+            if (!email || !pwd) { showAuthError('请填写邮箱和密码'); return; }
+            if (pwd.length < 6) { showAuthError('密码至少 6 位'); return; }
+            btn.disabled = true; btn.textContent = '请稍候…';
+            try {
+                if (authMode === 'login') {
+                    const r = await fetch(sbUrl('/auth/v1/token?grant_type=password'), {
+                        method: 'POST', headers: sbHeaders(false),
+                        body: JSON.stringify({ email: email, password: pwd })
+                    });
+                    const j = await r.json().catch(() => ({}));
+                    if (!r.ok) throw new Error(j.error_description || j.msg || ('登录失败（' + r.status + '）'));
+                    saveSession({ access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at, user: j.user });
+                    await loadUserRole();
+                    isAdminMode = (userRole === 'admin' || userRole === 'super_admin');
+                    closeModal('adminModal');
+                    afterAuthChanged();
+                    showToast(isAdminMode ? '登录成功，已进入编辑模式' : '登录成功，但账号暂无编辑权限');
+                    const remote = await cloudPull();
+                    if (remote && remote.data) applyRemoteData(remote);
+                } else {
+                    const r = await fetch(sbUrl('/auth/v1/signup'), {
+                        method: 'POST', headers: sbHeaders(false),
+                        body: JSON.stringify({ email: email, password: pwd })
+                    });
+                    const j = await r.json().catch(() => ({}));
+                    if (!r.ok) throw new Error(j.error_description || j.msg || ('注册失败（' + r.status + '）'));
+                    authMode = 'login';
+                    applyAuthMode();
+                    const e = document.getElementById('adminModalError');
+                    showAuthError('注册成功！请让超级管理员在「成员管理」中授予权限后再登录。');
+                    e.style.background = '#e8f6ed'; e.style.color = '#1a7f43';
+                }
+            } catch (err) {
+                const e = document.getElementById('adminModalError');
+                e.style.background = '#fff5f5'; e.style.color = 'var(--accent-red)';
+                showAuthError(!isCloudConfigured()
+                    ? '尚未配置云端服务，无法登录。请先在页面中填入 Supabase 的 Project URL 和 anon key。'
+                    : (err.message || String(err)));
+            } finally {
+                btn.disabled = false;
+                btn.textContent = authMode === 'login' ? '登录' : '注册';
+            }
+        }
+        async function authSignOut() {
+            try { if (authSession) await fetch(sbUrl('/auth/v1/logout'), { method: 'POST', headers: sbHeaders(true) }); }
+            catch (e) {}
+            clearSession();
+        }
+        function handleAdminLogout() {
+            checkPendingBeforeLeave(async function () {
+                await authSignOut();
+                isAdminMode = false;
+                highlightedStationId = null;
+                closeModal('membersModal');
+                afterAuthChanged();
+                showToast('已退出登录');
+            });
+        }
+        function afterAuthChanged() { updateAdminUI(); refreshAllViews(); }
+        function refreshAllViews() {
+            renderOverview();
+            if (currentLineId) {
+                const d = loadData();
+                const line = d.productionLines.find(function (l) { return l.id === currentLineId; });
+                if (line) renderLayout(line);
+            }
+        }
+        function applyRemoteData(remote) {
+            if (!remote || !remote.data || !remote.data.productionLines) return false;
+            suppressSync = true;
+            safeStorage.setItem(STORAGE_KEY, JSON.stringify(remote.data));
+            suppressSync = false;
+            remoteUpdatedAt = remote.updated_at;
+            refreshAllViews();
+            setSyncState('ok');
+            return true;
+        }
+
+        // ==================== 成员管理（仅超级管理员） ====================
+        async function openMembers() {
+            document.getElementById('membersModalBody').innerHTML =
+                '<div style="padding:24px;text-align:center;color:var(--text-light);">加载中…</div>';
+            openModal('membersModal');
+            await refreshMembers();
+        }
+        async function refreshMembers() {
+            const body = document.getElementById('membersModalBody');
+            if (userRole !== 'super_admin') {
+                body.innerHTML = '<div style="padding:16px;color:var(--accent-red);">只有超级管理员可以查看成员列表。</div>';
+                return;
+            }
+            if (!await ensureFreshToken()) {
+                body.innerHTML = '<div style="padding:16px;color:var(--accent-red);">登录已过期，请重新登录。</div>';
+                return;
+            }
+            try {
+                const r = await fetch(sbUrl('/rest/v1/profiles?select=id,email,role,created_at&order=created_at.asc'), { headers: sbHeaders(true) });
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()).slice(0, 160));
+                renderMembers(await r.json());
+            } catch (e) {
+                body.innerHTML = '<div style="padding:16px;color:var(--accent-red);">加载失败：' + escapeHtml(String(e.message || e)) + '</div>';
+            }
+        }
+        function renderMembers(list) {
+            const mine = authSession && authSession.user ? authSession.user.id : null;
+            const rows = list.map(function (p) {
+                const roleText = p.role === 'super_admin' ? '超级管理员' : (p.role === 'admin' ? '管理员' : '访客');
+                const isMe = p.id === mine;
+                let actions;
+                if (p.role === 'super_admin') actions = '<span style="color:var(--text-light);font-size:0.85rem;">最高权限</span>';
+                else if (p.role === 'admin') actions = '<button class="btn-action" onclick="setMemberRole(\'' + p.id + '\',\'viewer\')">撤销管理权</button>';
+                else actions = '<button class="btn-action primary" onclick="setMemberRole(\'' + p.id + '\',\'admin\')">设为管理员</button>';
+                return '<div class="member-row"><div class="member-main">' +
+                    '<div class="member-email">' + escapeHtml(p.email || '(无邮箱)') + (isMe ? '<span class="member-me">我</span>' : '') + '</div>' +
+                    '<div class="member-meta">加入于 ' + escapeHtml(String(p.created_at || '').slice(0, 10)) + '</div></div>' +
+                    '<div class="member-role role-' + escapeHtml(p.role) + '">' + roleText + '</div>' +
+                    '<div class="member-actions">' + actions + '</div></div>';
+            }).join('');
+            document.getElementById('membersModalBody').innerHTML = rows +
+                '<p style="margin-top:18px;font-size:0.82rem;color:var(--text-light);line-height:1.7;">撤销管理权后对方刷新页面即失去编辑能力。如需<b>彻底删除账号</b>，请到 Supabase 后台 Authentication → Users 删除。</p>';
+        }
+        async function setMemberRole(userId, role) {
+            if (userRole !== 'super_admin') { showToast('只有超级管理员可以调整权限'); return; }
+            if (!await ensureFreshToken()) { showToast('登录已过期，请重新登录'); return; }
+            try {
+                const r = await fetch(sbUrl('/rest/v1/profiles?id=eq.' + userId), {
+                    method: 'PATCH',
+                    headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=representation' }),
+                    body: JSON.stringify({ role: role })
+                });
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()).slice(0, 160));
+                showToast(role === 'admin' ? '已设为管理员' : '已撤销管理权');
+                await refreshMembers();
+            } catch (e) { alert('操作失败：' + (e.message || e)); }
+        }
+
+        function updateAdminUI() {
+            const badges = document.querySelectorAll('.admin-badge');
+            badges.forEach(b => b.style.display = isAdminMode ? 'inline' : 'none');
+            document.getElementById('btnAdminLogin').style.display = isAdminMode ? 'none' : 'inline-block';
+            document.getElementById('btnAdminLogout').style.display = isAdminMode ? 'inline-block' : 'none';
+            document.getElementById('btnHistory').style.display = isAdminMode ? 'inline-block' : 'none';
+            document.getElementById('btnExport').style.display = isAdminMode ? 'inline-block' : 'none';
+            document.getElementById('btnImport').style.display = isAdminMode ? 'inline-block' : 'none';
+            document.getElementById('btnAdminLoginDetail').style.display = isAdminMode ? 'none' : 'inline-block';
+            document.getElementById('btnAdminLogoutDetail').style.display = isAdminMode ? 'inline-block' : 'none';
+            document.getElementById('detailActions').style.display = isAdminMode ? 'flex' : 'none';
+            const mb = document.getElementById('btnMembers');
+            if (mb) mb.style.display = (isAdminMode && userRole === 'super_admin') ? 'inline-block' : 'none';
+            renderUserChip();
+            renderSyncBadge();
+            document.body.classList.toggle('admin-mode', isAdminMode);
+        }
+
+        // ==================== 模态框管理 ====================
+        function openModal(id) { document.getElementById(id).classList.add('show'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+        function showConfirm(text, confirmCb, cancelCb) {
+            document.getElementById('confirmModalText').textContent = text;
+            confirmCallback = confirmCb;
+            confirmCancelCallback = cancelCb || null;
+            openModal('confirmModal');
+        }
+
+        document.getElementById('btnConfirmYes').addEventListener('click', () => {
+            if (confirmCallback) { confirmCallback(); confirmCallback = null; }
+            confirmCancelCallback = null;
+            closeModal('confirmModal');
+        });
+
+        document.getElementById('btnConfirmCancel').addEventListener('click', () => {
+            if (confirmCancelCallback) { confirmCancelCallback(); confirmCancelCallback = null; }
+            confirmCallback = null;
+            closeModal('confirmModal');
+        });
+
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.classList.remove('show');
+            });
+        });
+
+        // ==================== 搜索功能 ====================
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const query = this.value.trim();
+            const dropdown = document.getElementById('searchResults');
+            if (query.length < 1) { dropdown.classList.remove('show'); dropdown.innerHTML = ''; return; }
+            const data = loadData();
+            const results = [];
+            data.productionLines.forEach(line => {
+                line.stations.forEach(station => {
+                    if (station.employee && station.employee.name.includes(query)) {
+                        results.push({ lineId: line.id, lineName: line.name, stationId: station.id, stationName: station.name, empName: station.employee.name, empPosition: station.employee.position });
+                    }
+                });
+            });
+            if (results.length === 0) {
+                dropdown.innerHTML = '<div style="padding:12px 16px;color:var(--text-light);font-size:0.85rem;">未找到匹配的员工</div>';
+            } else {
+                dropdown.innerHTML = results.map(r => `
+                    <div class="search-result-item" data-line-id="${r.lineId}" data-station-id="${r.stationId}">
+                        <div style="font-weight:600;">${escapeHtml(r.empName)}</div>
+                        <div class="result-line">${escapeHtml(r.lineName)} · ${escapeHtml(r.stationName)} · ${escapeHtml(r.empPosition)}</div>
+                    </div>
+                `).join('');
+                dropdown.querySelectorAll('.search-result-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const lid = item.dataset.lineId;
+                        const sid = item.dataset.stationId;
+                        highlightedStationId = sid;
+                        dropdown.classList.remove('show');
+                        document.getElementById('searchInput').value = '';
+                        openLineDetail(lid);
+                    });
+                });
+            }
+            dropdown.classList.add('show');
+        });
+
+        document.getElementById('searchInputDetail').addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length < 1) {
+                highlightedStationId = null;
+                if (currentLineId) {
+                    const data = loadData();
+                    const line = data.productionLines.find(l => l.id === currentLineId);
+                    if (line) renderLayout(line);
+                }
+                return;
+            }
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            if (!line) return;
+            const match = line.stations.find(s => s.employee && s.employee.name.includes(query));
+            highlightedStationId = match ? match.id : null;
+            renderLayout(line);
+        });
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('searchResults');
+            const searchBox = document.getElementById('searchBox');
+            if (!searchBox.contains(e.target) && dropdown.classList.contains('show')) dropdown.classList.remove('show');
+        });
+
+        // ==================== 历史记录 ====================
+        function openHistory() {
+            const data = loadData();
+            const list = document.getElementById('historyList');
+            if (data.history.length === 0) {
+                list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-light);">暂无历史记录</div>';
+            } else {
+                const sorted = [...data.history].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                list.innerHTML = sorted.map(h => `
+                    <div class="history-item">
+                        <span class="history-time">${formatTimestamp(h.timestamp)}</span>
+                        <span class="history-type">[${escapeHtml(h.type)}]</span>
+                        <span class="history-desc">${escapeHtml(h.lineName)} - ${escapeHtml(h.details)}</span>
+                    </div>
+                `).join('');
+            }
+            openModal('historyModal');
+        }
+
+        function formatTimestamp(ts) {
+            try {
+                const d = new Date(ts);
+                return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            } catch (e) { return ts; }
+        }
+
+        function exportBackup() {
+            const data = loadData();
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const now = new Date();
+            const pad = function (n) { return String(n).padStart(2, '0'); };
+            const stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) +
+                          '_' + pad(now.getHours()) + pad(now.getMinutes());
+            a.download = '\u8f66\u95f4\u6570\u636e\u5907\u4efd_' + stamp + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('备份已导出：' + a.download);
+        }
+
+        // ==================== 导入备份 ====================
+        function validateImportData(obj) {
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '文件内容不是有效的 JSON 对象';
+            if (!Array.isArray(obj.productionLines)) return '缺少 productionLines 数组，可能不是本系统的备份文件';
+            for (let i = 0; i < obj.productionLines.length; i++) {
+                const line = obj.productionLines[i];
+                if (!line || typeof line !== 'object') return '第 ' + (i + 1) + ' 条产线格式错误';
+                if (line.id === undefined || line.id === null) return '第 ' + (i + 1) + ' 条产线缺少 id';
+                if (!Array.isArray(line.stations)) return '产线「' + (line.name || line.id) + '」缺少 stations 数组';
+                if (line.devices !== undefined && !Array.isArray(line.devices)) return '产线「' + (line.name || line.id) + '」的 devices 格式错误';
+                for (let j = 0; j < line.stations.length; j++) {
+                    const st = line.stations[j];
+                    if (!st || st.id === undefined || st.id === null) return '产线「' + (line.name || line.id) + '」第 ' + (j + 1) + ' 个岗位缺少 id';
+                }
+            }
+            if (obj.history !== undefined && !Array.isArray(obj.history)) return 'history 字段格式错误';
+            return null;
+        }
+
+        function importBackup() {
+            const input = document.getElementById('importFileInput');
+            input.value = '';   // 允许连续导入同一个文件
+            input.click();
+        }
+
+        function handleImportFile(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onerror = function () { alert('导入失败：无法读取该文件'); };
+            reader.onload = function (ev) {
+                let obj;
+                try {
+                    obj = JSON.parse(ev.target.result);
+                } catch (err) {
+                    alert('导入失败：文件不是合法的 JSON。\n' + err.message);
+                    return;
+                }
+                const err = validateImportData(obj);
+                if (err) { alert('导入失败：' + err + '\n\n当前数据未被修改。'); return; }
+
+                const statLines = obj.productionLines.length;
+                const statStations = obj.productionLines.reduce(function (n, l) {
+                    return n + (Array.isArray(l.stations) ? l.stations.length : 0);
+                }, 0);
+                const summary = statLines + ' 条产线 / ' + statStations + ' 个岗位';
+
+                showConfirm('即将用备份覆盖当前全部数据（' + summary + '），此操作不可撤销。是否继续？', function () {
+                    if (!Array.isArray(obj.history)) obj.history = [];
+                    addHistory('导入备份', '全部产线', '从文件导入：' + file.name, obj);
+                    hasPendingPositionChanges = false;
+                    Object.keys(pendingPositions).forEach(function (k) { delete pendingPositions[k]; });
+                    updatePendingBadge();
+                    renderOverview();
+                    if (currentLineId) {
+                        const line = obj.productionLines.find(function (l) { return l.id === currentLineId; });
+                        if (line) renderLayout(line);
+                        else showPage('overviewPage');
+                    }
+                    showToast('备份已导入：' + summary);
+                });
+            };
+            reader.readAsText(file, 'utf-8');
+        }
+
+        // ==================== 事件绑定 ====================
+        document.getElementById('btnBackToOverview').addEventListener('click', () => {
+            checkPendingBeforeLeave(() => {
+                highlightedStationId = null;
+                showPage('overviewPage');
+                renderOverview();
+            });
+        });
+        document.getElementById('btnAdminLogin').addEventListener('click', openAdminLogin);
+        document.getElementById('btnAdminLoginDetail').addEventListener('click', openAdminLogin);
+        document.getElementById('btnAdminLogout').addEventListener('click', handleAdminLogout);
+        document.getElementById('btnAdminLogoutDetail').addEventListener('click', handleAdminLogout);
+        document.getElementById('btnHistory').addEventListener('click', openHistory);
+        document.getElementById('btnExport').addEventListener('click', exportBackup);
+        document.getElementById('btnAuthSubmit').addEventListener('click', submitAuthForm);
+        document.getElementById('btnAuthSwitchMode').addEventListener('click', toggleAuthMode);
+        document.getElementById('btnMembers').addEventListener('click', openMembers);
+        document.getElementById('btnImport').addEventListener('click', importBackup);
+        document.getElementById('btnExportDetail').addEventListener('click', exportBackup);
+        document.getElementById('btnImportDetail').addEventListener('click', importBackup);
+        document.getElementById('importFileInput').addEventListener('change', handleImportFile);
+        document.getElementById('btnAddStation').addEventListener('click', openAddStation);
+        document.getElementById('btnEditLineName').addEventListener('click', () => { if (currentLineId) openEditLineName(currentLineId); });
+
+        function showStorageNotice() {
+            if (safeStorage.persistent) return;
+            if (isCloudConfigured()) return;   // 有云端时本地只是缓存，无需告警
+            const el = document.createElement('div');
+            el.id = 'storageNotice';
+            el.innerHTML = '⚠️ 当前托管环境禁用了本地存储，<b>刷新页面会恢复默认数据</b>。如需长期保留，请用管理员模式的「📥 导出备份 / 📤 导入备份」，或在本地/自有服务器打开本页。';
+            const close = document.createElement('button');
+            close.textContent = '✕';
+            close.setAttribute('aria-label', '关闭提示');
+            close.onclick = function () { el.remove(); };
+            el.appendChild(close);
+            document.body.appendChild(el);
+        }
+
+        async function init() {
+            loadData();
+            updateAdminUI();
+            showStorageNotice();
+            if (isCloudConfigured()) {
+                restoreSession();
+                if (authSession) {
+                    await loadUserRole();
+                    isAdminMode = (userRole === 'admin' || userRole === 'super_admin');
+                    updateAdminUI();
+                }
+                setSyncState('syncing');
+                const remote = await cloudPull();
+                if (!applyRemoteData(remote)) setSyncState('idle');
+            }
+            console.log('车间可视化系统已启动');
+        }
+        init();
+    </script>
+</body>
+</html>
