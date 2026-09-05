@@ -1203,39 +1203,52 @@
             const station = line.stations.find(s => s.id === stationId);
             if (!station || !station.employee) return;
             const emp = station.employee;
-            document.getElementById('editPersonModalTitle').textContent = `编辑 ${emp.name} 的信息`;
+            document.getElementById('editPersonModalTitle').textContent = `编辑「${station.name}」的信息`;
             document.getElementById('editPersonModalBody').innerHTML = `
+                <div class="form-group"><label>岗位名称（布局上显示的名字）</label><input type="text" id="editStationName" value="${escapeHtml(station.name)}" placeholder="如：质检岗"></div>
                 <div class="form-group"><label>员工姓名</label><input type="text" id="editEmpName" value="${escapeHtml(emp.name)}"></div>
-                <div class="form-group"><label>岗位名称（职务）</label><input type="text" id="editEmpPosition" value="${escapeHtml(emp.position)}"></div>
+                <div class="form-group"><label>职务（如：质检员）</label><input type="text" id="editEmpPosition" value="${escapeHtml(emp.position)}"></div>
                 <div class="form-group"><label>岗位职责</label><textarea id="editEmpResponsibilities">${escapeHtml(emp.responsibilities || '')}</textarea></div>
                 <div class="form-group"><label>安全/操作注意事项</label><textarea id="editEmpNotes">${escapeHtml(emp.notes || '')}</textarea></div>
                 <div class="form-group"><label style="display:inline-flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;margin-bottom:0;"><input type="checkbox" id="editEmpIsKey" style="width:auto;height:auto;" ${emp.isKey ? 'checked' : ''}> ★ 标记为重点岗位（布局中显示金黄色 ★ 角标）</label></div>
+                <p style="font-size:0.75rem;color:var(--text-light);">提示：第一行的「岗位名称」就是布局图上人像下方显示的名字；「员工姓名」改了会算作换人。</p>
             `;
-            document.getElementById('btnSavePersonEdit').onclick = () => savePersonEdit(stationId, emp.name);
+            document.getElementById('btnSavePersonEdit').onclick = () => savePersonEdit(stationId);
             closeModal('personModal');
             openModal('editPersonModal');
         }
 
-        function savePersonEdit(stationId, oldName) {
+        function savePersonEdit(stationId) {
             const data = loadData();
             const line = data.productionLines.find(l => l.id === currentLineId);
             const station = line.stations.find(s => s.id === stationId);
             if (!station || !station.employee) return;
+            const emp = station.employee;
+            const oldStationName = station.name;
+            const oldEmpName = emp.name;
+            const newStationName = document.getElementById('editStationName').value.trim();
             const newName = document.getElementById('editEmpName').value.trim();
             const newPosition = document.getElementById('editEmpPosition').value.trim();
             const newResp = document.getElementById('editEmpResponsibilities').value.trim();
             const newNotes = document.getElementById('editEmpNotes').value.trim();
             const keyCb = document.getElementById('editEmpIsKey');
             const newIsKey = !!keyCb && keyCb.checked;
+            if (!newStationName) { alert('岗位名称不能为空'); return; }
             if (!newName) { alert('员工姓名不能为空'); return; }
-            const nameChanged = (newName !== oldName);
-            const keyChanged = newIsKey !== !!loadData().productionLines.find(l => l.id === currentLineId).stations.find(s => s.id === stationId).employee.isKey;
-            const confirmText = `确定保存对 ${oldName} 的信息更改吗？` + (nameChanged ? `（姓名由 ${oldName} 变更为 ${newName}）` : '') + (keyChanged ? `（${newIsKey ? '标记为' : '取消'}重点岗位）` : '');
+            const stationChanged = (newStationName !== oldStationName);
+            const nameChanged = (newName !== oldEmpName);
+            const keyChanged = (newIsKey !== !!emp.isKey);
+            const changes = [];
+            if (stationChanged) changes.push(`岗位名由「${oldStationName}」改为「${newStationName}」`);
+            if (nameChanged) changes.push(`员工由 ${oldEmpName} 更换为 ${newName}`);
+            if (keyChanged) changes.push(newIsKey ? '标记为重点岗位' : '取消重点岗位');
+            const confirmText = `确定保存「${oldStationName}」的更改吗？` + (changes.length ? '（' + changes.join('；') + '）' : '');
             const doSave = () => {
                 const currentData = loadData();
                 const currentLine = currentData.productionLines.find(l => l.id === currentLineId);
                 const st = currentLine.stations.find(s => s.id === stationId);
                 if (st && st.employee) {
+                    st.name = newStationName;
                     st.employee.name = newName;
                     st.employee.position = newPosition || '未指定';
                     st.employee.responsibilities = newResp;
@@ -1249,9 +1262,9 @@
                     }
                     const historyEntry = {
                         id: currentData.history.length > 0 ? Math.max(...currentData.history.map(h => h.id)) + 1 : 1,
-                        type: nameChanged ? '换人' : '更新信息',
+                        type: nameChanged ? '换人' : (stationChanged ? '修改岗位名称' : '更新信息'),
                         lineName: currentLine.name,
-                        details: nameChanged ? `${st.name}人员由 ${oldName} 更换为 ${newName}` : `${st.name}（${newName}）信息已更新`,
+                        details: nameChanged ? `${newStationName}人员由 ${oldEmpName} 更换为 ${newName}` : (stationChanged ? `岗位「${oldStationName}」改名为「${newStationName}」（${newName}）` : `${newStationName}（${newName}）信息已更新`),
                         timestamp: new Date().toISOString()
                     };
                     currentData.history.push(historyEntry);
