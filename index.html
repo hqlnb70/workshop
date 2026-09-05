@@ -165,7 +165,13 @@
         .station-marker:hover .station-hover-tip { opacity: 1; }
         .btn-delete-station, .btn-delete-device { display: none; position: absolute; top: -8px; left: -8px; background: var(--accent-red); color: #fff; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 0.7rem; z-index: 15; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: all 0.2s; pointer-events: auto; }
         .btn-delete-station:hover, .btn-delete-device:hover { background: #c0392b; transform: scale(1.2); }
-        body.admin-mode .btn-delete-station, body.admin-mode .btn-delete-device { display: flex; }
+        .btn-copy-station, .btn-copy-device { display: none; position: absolute; top: -8px; left: 16px; background: #27ae60; color: #fff; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 1rem; font-weight: 700; z-index: 15; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: all 0.2s; pointer-events: auto; line-height: 1; }
+        .btn-copy-station:hover, .btn-copy-device:hover { background: #1e8e4e; transform: scale(1.2); }
+        .btn-copy-device, .btn-delete-device { left: auto; }
+        .btn-copy-device { right: 2px; top: 2px; }
+        .btn-delete-device { right: 26px; top: 2px; left: auto; }
+        body.admin-mode .btn-delete-station, body.admin-mode .btn-delete-device,
+        body.admin-mode .btn-copy-station, body.admin-mode .btn-copy-device { display: flex; }
         body.admin-mode .station-marker { cursor: move; }
         body.admin-mode .station-marker:hover { cursor: grab; }
         body.admin-mode .station-marker.dragging { cursor: grabbing; }
@@ -809,9 +815,15 @@
                 devEl.title = dev.name + (isAdminMode ? '（双击编辑）' : '');
                 canvas.appendChild(devEl);
                 if (isAdminMode) {
+                    // 快速操作：右上角 + 复制 / × 删除
+                    devEl.insertAdjacentHTML('beforeend',
+                        `<button class="btn-copy-device" title="复制此设备" onclick="event.stopPropagation();copyDevice('${dev.id}')">+</button>` +
+                        `<button class="btn-delete-device" title="删除设备" onclick="event.stopPropagation();deleteDeviceQuick('${dev.id}')">×</button>`
+                    );
                     enableDragOnDevice(devEl, line, dev.id);
                     // 与人员一致：双击才打开编辑弹窗，单击/拖动不再误弹
                     devEl.addEventListener('dblclick', (e) => {
+                        if (e.target.closest('.btn-copy-device, .btn-delete-device')) return;
                         e.stopPropagation();
                         openEditDevice(dev.id);
                     });
@@ -832,9 +844,10 @@
                     <div class="station-hover-tip">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}${isKey ? ' · ★重点岗位' : ''}（双击查看详情）</div>
                     <div class="station-icon">👤${showNew ? '<span class="new-indicator">新</span>' : ''}</div>
                     <span class="station-label">${isKey ? '★ ' : ''}${escapeHtml(station.name)}</span>
-                    ${isAdminMode ? `<button class="btn-delete-station" title="删除岗位" onclick="event.stopPropagation();deleteStation('${station.id}')">×</button>` : ''}
+                    ${isAdminMode ? `<button class="btn-delete-station" title="删除岗位" onclick="event.stopPropagation();deleteStation('${station.id}')">×</button><button class="btn-copy-station" title="复制此岗位" onclick="event.stopPropagation();copyStation('${station.id}')">+</button>` : ''}
                 `;
                 marker.addEventListener('dblclick', (e) => {
+                    if (e.target.closest('.btn-delete-station, .btn-copy-station')) return;
                     e.stopPropagation();
                     openPersonCard(line.id, station.id);
                 });
@@ -846,12 +859,12 @@
         // ==================== 拖拽功能 ====================
         function enableDragOnStation(element, line, stationId) {
             element.addEventListener('mousedown', (e) => {
-                if (e.target.closest('.btn-delete-station')) return;
+                if (e.target.closest('.btn-delete-station, .btn-copy-station')) return;
                 e.preventDefault(); e.stopPropagation();
                 startDrag(e.clientX, e.clientY, element, line, 'station', stationId);
             });
             element.addEventListener('touchstart', (e) => {
-                if (e.target.closest('.btn-delete-station')) return;
+                if (e.target.closest('.btn-delete-station, .btn-copy-station')) return;
                 if (e.touches.length === 1) {
                     const touch = e.touches[0];
                     e.preventDefault(); e.stopPropagation();
@@ -862,10 +875,12 @@
 
         function enableDragOnDevice(element, line, deviceId) {
             element.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.btn-copy-device, .btn-delete-device')) return;
                 e.preventDefault(); e.stopPropagation();
                 startDrag(e.clientX, e.clientY, element, line, 'device', deviceId);
             });
             element.addEventListener('touchstart', (e) => {
+                if (e.target.closest('.btn-copy-device, .btn-delete-device')) return;
                 if (e.touches.length === 1) {
                     const touch = e.touches[0];
                     e.preventDefault(); e.stopPropagation();
@@ -1114,6 +1129,61 @@
                 renderLayout(line);
                 renderOverview();
                 alert('设备已删除');
+            });
+        }
+
+        // ==================== 布局上的快速复制 / 删除 ====================
+        function copyStation(stationId) {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const st = line && line.stations.find(s => s.id === stationId);
+            if (!st || !st.employee) return;
+            const empCopy = JSON.parse(JSON.stringify(st.employee));
+            const newId = 'st' + Date.now() + Math.floor(Math.random() * 100);
+            const x = Math.min(88, Math.max(2, st.x + 6));
+            const y = Math.min(78, Math.max(2, st.y + 6));
+            line.stations.push({ id: newId, name: st.name, x: x, y: y, employee: empCopy });
+            saveData(data);
+            addHistory('复制岗位', line.name, `复制岗位「${st.name}（${empCopy.name}）」`, data);
+            renderLayout(line);
+            renderOverview();
+            showToast('已复制该岗位，可拖动调整位置或双击改名');
+        }
+
+        function copyDevice(deviceId) {
+            const data = loadData();
+            const line = data.productionLines.find(l => l.id === currentLineId);
+            const dev = line && line.devices.find(d => d.id === deviceId);
+            if (!dev) return;
+            const newId = 'dv' + Date.now() + Math.floor(Math.random() * 100);
+            const x = Math.min(88, Math.max(2, dev.x + 6));
+            const y = Math.min(78, Math.max(2, dev.y + 6));
+            line.devices.push({ id: newId, name: dev.name, x: x, y: y, w: dev.w, h: dev.h });
+            saveData(data);
+            addHistory('复制设备', line.name, `复制设备 ${dev.name}`, data);
+            renderLayout(line);
+            renderOverview();
+            showToast('已复制该设备，可拖动调整位置或双击改名');
+        }
+
+        function deleteDeviceQuick(deviceId) {
+            showConfirm('确定要删除该设备吗？', () => {
+                const data = loadData();
+                const line = data.productionLines.find(l => l.id === currentLineId);
+                const device = line.devices.find(d => d.id === deviceId);
+                if (!device) return;
+                const pk = 'device:' + deviceId;
+                if (pendingPositions[pk]) {
+                    delete pendingPositions[pk];
+                    if (Object.keys(pendingPositions).length === 0) { hasPendingPositionChanges = false; updatePendingBadge(); }
+                }
+                line.devices = line.devices.filter(d => d.id !== deviceId);
+                saveData(data);
+                addHistory('删除设备', line.name, `删除设备 ${device.name}`, data);
+                closeModal('confirmModal');
+                renderLayout(line);
+                renderOverview();
+                showToast('设备已删除');
             });
         }
 
