@@ -1223,6 +1223,14 @@
                 } else {
                     showToast('当前浏览器不支持全屏，可试试把手机横过来看');
                 }
+                // 请求横屏方向锁定（仅移动端有意义，桌面会失败忽略）
+                if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                    screen.orientation.lock('landscape').then(function () {
+                        showToast('已自动切换到横屏');
+                    }).catch(function () {
+                        showToast('如画面仍是竖屏，请手动把手机横过来');
+                    });
+                }
             }
         }
         function updateFullscreenLabel() {
@@ -1230,6 +1238,10 @@
             if (!btn) return;
             const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
             btn.textContent = isFs ? '⛶ 退出全屏' : '⛶ 全屏';
+            // 退出全屏时释放方向锁定，让屏幕恢复自由旋转
+            if (!isFs && screen.orientation && typeof screen.orientation.unlock === 'function') {
+                try { screen.orientation.unlock(); } catch (e) {}
+            }
         }
         document.addEventListener('fullscreenchange', updateFullscreenLabel);
         document.addEventListener('webkitfullscreenchange', updateFullscreenLabel);
