@@ -1207,6 +1207,13 @@
         }
 
         // ==================== 布局全屏 ====================
+        function tryLockLandscape(showMsg) {
+            if (!screen.orientation || typeof screen.orientation.lock !== 'function') return;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
+            screen.orientation.lock('landscape').then(function () {
+                if (showMsg) showToast('已自动切换到横屏');
+            }).catch(function () {});
+        }
         function toggleLayoutFullscreen() {
             const el = document.getElementById('layoutCanvas');
             const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
@@ -1218,18 +1225,15 @@
                 if (req) {
                     try {
                         const pr = req.call(el);
-                        if (pr && pr.catch) pr.catch(() => showToast('当前浏览器不支持全屏，可试试把手机横过来看'));
+                        if (pr && typeof pr.then === 'function') {
+                            pr.then(function () { tryLockLandscape(true); })
+                              .catch(function () { showToast('当前浏览器不支持全屏，可试试把手机横过来看'); });
+                        } else {
+                            tryLockLandscape(true);
+                        }
                     } catch (e) { showToast('当前浏览器不支持全屏，可试试把手机横过来看'); }
                 } else {
                     showToast('当前浏览器不支持全屏，可试试把手机横过来看');
-                }
-                // 请求横屏方向锁定（仅移动端有意义，桌面会失败忽略）
-                if (screen.orientation && typeof screen.orientation.lock === 'function') {
-                    screen.orientation.lock('landscape').then(function () {
-                        showToast('已自动切换到横屏');
-                    }).catch(function () {
-                        showToast('如画面仍是竖屏，请手动把手机横过来');
-                    });
                 }
             }
         }
@@ -1238,8 +1242,10 @@
             if (!btn) return;
             const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
             btn.textContent = isFs ? '⛶ 退出全屏' : '⛶ 全屏';
-            // 退出全屏时释放方向锁定，让屏幕恢复自由旋转
-            if (!isFs && screen.orientation && typeof screen.orientation.unlock === 'function') {
+            if (isFs) {
+                // 进入全屏后再补一次横屏锁定（兼容部分浏览器时序）
+                tryLockLandscape(false);
+            } else if (screen.orientation && typeof screen.orientation.unlock === 'function') {
                 try { screen.orientation.unlock(); } catch (e) {}
             }
         }
