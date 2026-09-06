@@ -139,22 +139,6 @@
         .btn-action.primary { background: var(--primary-blue); color: #fff; border-color: var(--primary-blue); }
         .btn-action.primary:hover { background: var(--primary-light); border-color: var(--primary-light); }
         .layout-canvas { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 24px; position: relative; height: calc(100vh - 235px); min-height: 520px; border: 2px solid var(--border-color); overflow: hidden; touch-action: none; box-sizing: border-box; }
-        .rotate-hint { display: none; margin: 0 0 12px; padding: 10px 14px; background: linear-gradient(135deg, #fff8e1, #ffecb3); border: 1px solid #f0c36d; border-radius: 8px; color: #7a5a00; font-size: 0.92rem; line-height: 1.5; align-items: center; gap: 8px; }
-        @media (max-width: 720px) and (orientation: portrait) {
-            .rotate-hint { display: flex; }
-        }
-        .layout-canvas:fullscreen, .layout-canvas:-webkit-full-screen { width: 100vw; height: 100vh; min-height: 0; max-height: none; border-radius: 0; border: none; box-shadow: none; padding: 22px; }
-        .fs-exit { display: none; position: absolute; top: 12px; right: 12px; z-index: 30; padding: 8px 16px; border-radius: 8px; background: rgba(17,24,39,.72); color: #fff; border: none; font-size: .9rem; cursor: pointer; pointer-events: auto; }
-        .layout-canvas:fullscreen .fs-exit, .layout-canvas:-webkit-full-screen .fs-exit { display: block; }
-        @media (max-width: 960px) and (orientation: landscape) and (max-height: 620px) {
-            .detail-container { padding: 8px 16px 16px; }
-            .detail-header { margin-bottom: 10px; }
-            .detail-header h2 { font-size: 1.1rem; }
-            .detail-actions .btn-action { padding: 6px 10px; font-size: 0.8rem; }
-            .layout-canvas { height: calc(100vh - 128px); min-height: 0; padding: 12px; }
-            .station-icon { width: 34px; height: 34px; font-size: 1.1rem; border-width: 2px; }
-            .layout-device { font-size: 0.6rem; padding: 2px; }
-        }
         .layout-canvas::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 30px, rgba(0,0,0,0.03) 30px, rgba(0,0,0,0.03) 31px), repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(0,0,0,0.03) 30px, rgba(0,0,0,0.03) 31px); pointer-events: none; border-radius: var(--radius-lg); z-index: 0; }
         .layout-device { position: absolute; background: linear-gradient(135deg, #d5dde5, #b8c4d0); border: 2px solid #8fa8bc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; color: #4a5f70; letter-spacing: 0.05em; text-transform: uppercase; user-select: none; box-shadow: 0 2px 6px rgba(0,0,0,0.1); z-index: 2; transition: all 0.3s; pointer-events: none; padding: 4px; line-height: 1.4; }
         body.admin-mode .layout-device { pointer-events: auto; cursor: move; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
@@ -345,13 +329,11 @@
                     <span class="search-icon">🔍</span>
                     <input type="text" id="searchInputDetail" placeholder="搜索本产线员工..." autocomplete="off">
                 </div>
-                <button class="btn-admin" id="btnLayoutFullscreen" title="全屏查看布局（手机横屏体验更佳）" onclick="toggleLayoutFullscreen()">⛶ 全屏</button>
                 <button class="btn-admin" id="btnAdminLoginDetail">管理员登录</button>
                 <button class="btn-admin" id="btnAdminLogoutDetail" style="display:none;">退出管理</button>
             </div>
         </div>
         <div class="detail-container">
-            <div class="rotate-hint" id="rotateHint">📱 提示：把手机<strong>横过来</strong>查看，布局会变成宽屏（和电脑一样）↻</div>
             <div class="detail-header">
                 <h2 id="detailLineName">产线</h2>
                 <div class="detail-actions" id="detailActions" style="display:none;">
@@ -872,12 +854,6 @@
                 if (isAdminMode) enableDragOnStation(marker, line, station.id);
                 canvas.appendChild(marker);
             });
-            // 全屏模式下画布内的退出按钮
-            const fsExit = document.createElement('button');
-            fsExit.className = 'fs-exit';
-            fsExit.textContent = '✕ 退出全屏';
-            fsExit.onclick = function (e) { e.stopPropagation(); toggleLayoutFullscreen(); };
-            canvas.appendChild(fsExit);
         }
 
         // ==================== 拖拽功能 ====================
@@ -1210,54 +1186,6 @@
                 showToast('设备已删除');
             });
         }
-
-        // ==================== 布局全屏 ====================
-        function tryLockLandscape(showMsg) {
-            if (!screen.orientation || typeof screen.orientation.lock !== 'function') return;
-            if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
-            screen.orientation.lock('landscape').then(function () {
-                if (showMsg) showToast('已自动切换到横屏');
-            }).catch(function () {
-                if (showMsg) showToast('请把手机横过来查看（布局会变宽）');
-            });
-        }
-        function toggleLayoutFullscreen() {
-            const el = document.getElementById('layoutCanvas');
-            const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-            if (fsEl) {
-                const exit = document.exitFullscreen || document.webkitExitFullscreen;
-                if (exit) exit.call(document);
-            } else if (el) {
-                const req = el.requestFullscreen || el.webkitRequestFullscreen;
-                if (req) {
-                    try {
-                        const pr = req.call(el);
-                        if (pr && typeof pr.then === 'function') {
-                            pr.then(function () { tryLockLandscape(true); })
-                              .catch(function () { showToast('当前浏览器不支持全屏，可试试把手机横过来看'); });
-                        } else {
-                            tryLockLandscape(true);
-                        }
-                    } catch (e) { showToast('当前浏览器不支持全屏，可试试把手机横过来看'); }
-                } else {
-                    showToast('当前浏览器不支持全屏，可试试把手机横过来看');
-                }
-            }
-        }
-        function updateFullscreenLabel() {
-            const btn = document.getElementById('btnLayoutFullscreen');
-            if (!btn) return;
-            const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-            btn.textContent = isFs ? '⛶ 退出全屏' : '⛶ 全屏';
-            if (isFs) {
-                // 进入全屏后再补一次横屏锁定（兼容部分浏览器时序）
-                tryLockLandscape(false);
-            } else if (screen.orientation && typeof screen.orientation.unlock === 'function') {
-                try { screen.orientation.unlock(); } catch (e) {}
-            }
-        }
-        document.addEventListener('fullscreenchange', updateFullscreenLabel);
-        document.addEventListener('webkitfullscreenchange', updateFullscreenLabel);
 
         // ==================== 人物信息卡片 ====================
         function openPersonCard(lineId, stationId) {
